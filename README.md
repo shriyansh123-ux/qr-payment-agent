@@ -1,166 +1,216 @@
-Universal Global QR Payment Translator Agent
+Universal Global QR Payment Translator
 
-A Multi-Agent, Gemini-Powered Financial Translator for Cross-Border QR Payments
+A Multi-Agent AI System for Real-Time FX Conversion, Risk Scoring & QR Payment Interpretation
 
-This project is submitted as part of the Google AI Agent Builder Capstone.
+ 1. Problem Statement
 
-It demonstrates a multi-agent AI system capable of reading international QR payment payloads, converting them to the user's home currency, computing fees, performing risk analysis, and producing a natural-language explanation powered by Gemini 2.5 Flash.
+When travelling internationally, consumers frequently scan foreign QR codes for payments. But they face several issues:
 
-1. Problem Statement
+No visibility of actual cost in home currency
 
-QR payment systems are country-specific, each with its own:
+Hidden FX markups and network fees
 
-currency
+No fraud/risk guidance
 
-fee model
+Different QR formats across countries
 
-formatting rules
+No unified tool supporting both QR images and QR text payloads
 
-network charges
+ This leads to overpayment, confusion, and security risk.
 
-risk signals
+ 2. Solution Overview
 
-For travelers, this creates friction:
+The Universal Global QR Payment Translator solves this with a multi-agent AI system that:
 
-How much will I actually pay in my home currency?
+ Parses QR codes
 
-What network fees apply?
+From text: QR:JP:JPY:1500
 
-Is this merchant or transaction risky?
+From images (drag & drop, upload, clipboard)
 
-Should I proceed or cancel?
+Supports multiple QRs in one string (multi-QR parsing)
 
-Traditional banking apps don't provide real-time, intelligent breakdowns.
+ Computes FX conversion
 
-2. Solution
+Uses live FX API (open.er-api.com)
 
-Universal Global QR Payment Translator Agent
+Automatic fallback to mock FX rates when offline
 
-A multi-agent system that:
+Includes markup, network fee, conversion breakdown
 
-Reads QR payloads (e.g., QR:JP:JPY:1500)
+ Performs Intelligent Risk Scoring
 
-Extracts country, currency, and amount
+A multi-signal reasoning engine evaluates:
 
-Converts amount into user’s home currency (INR)
+Signal	Logic
+Country familiarity	Distance risk scoring
+Transaction size	Large / unusual payments
+Merchant history	First-time merchant → higher risk
+Bad merchant list	Suspicious merchants flagged
+User preference	Balanced / conservative / risky
+Currency patterns	Deviations from normal behavior
 
-Applies markups and network fees
+Generates: risk level + score + reasons
 
-Performs risk scoring
+ Uses an LLM (Gemini) for explanations
 
-Uses Gemini 2.5 Flash to summarize and explain the final payable amount
+The explanation agent produces natural-language guidance like:
 
-Persists user preferences using memory (home currency, risk preference)
+“This transaction appears low risk. Your final cost will be ₹860.75 after FX markup and fees.”
 
-A complete conversational, intelligent financial assistant for global QR payments.
+ Provides a clean interactive UI (Gradio)
 
-3. Key Features Demonstrated 
+Text input
 
-✔ 3.1 Multi-Agent System
+Image upload (filepath)
 
-QRParserAgent
+Multi-QR output
 
-FXRateAgent
+JSON inspector
 
-RiskGuardAgent
+History table
 
-OrchestratorAgent
+Dark mode
 
-✔ 3.2 Custom Tools
+Status indicators
 
-decode_qr_tool
+ Fully deployable as a cloud web app
 
-fx_api_tool
+Supports Render / Railway / Cloud Run.
 
-fee_rules_tool
+ 3. System Architecture
++---------------------------+
+|       User Interface      | (Gradio UI)
+| - Image Upload            |
+| - Text Input              |
+| - History Panel           |
++-------------+-------------+
+              |
+              v
++-------------+-------------------------------+
+|               Orchestrator Agent            |
+|  (Manages flow, session, memory, LLM calls) |
++-------------+-------------------------------+
+      |                 |                |
+      v                 v                v
++-----------+    +-------------+   +----------------+
+| QR Agent  |    | FX Agent    |   | Risk Agent     |
+| (text &   |    | - Live FX   |   | - Multi-signal |
+| image)    |    | - Markup    |   |   scoring      |
++-----------+    | - Fees      |   +----------------+
+                  |
+                  v
+            +-------------+
+            | Explanation |
+            |   Agent     |
+            |  (Gemini)   |
+            +-------------+
 
-risk_data_tool
+ 4. Features Implemented (Capstone Requirements)
+✔ Multi-Agent System
 
-gemini_http_client (custom HTTPS tool)
+Orchestrator agent
 
-✔ 3.3 Sessions & Memory
+QR parser agent
+
+QR image agent
+
+FX agent
+
+Risk scoring agent
+
+Explanation (LLM) agent
+
+✔ Tools
+
+Custom Tool: Live FX API
+
+Custom Tool: QR image decoder
+
+Built-in Tools: Gemini API (LLM)
+
+HTTP client for external API
+
+✔ Session & Memory
 
 InMemorySessionService
 
 SimpleMemoryBank
 
-✔ 3,4 Context Engineering
+Merchant history
 
-Dynamic system prompt
+Risk preference memory
 
-Compact conversation history
+Context compaction
 
-Tool results → LLM prompt injection
+✔ Context Engineering
 
-✔ 3.5 Observability
+Dynamic system prompts
 
-Logging each step: QR decode, FX calculation, risk scoring
+Conversation history compaction
 
-✔ 3.6 Gemini Integration
+Tool result summarization
 
-Uses official HTTP v1 endpoint
+✔ Observability
 
-Model: gemini-2.5-flash
+Logging using Python logging
 
-4. Architecture Diagram
-                ┌──────────────────────────────────┐
-                │     Universal QR Payment Agent   │
-                └──────────────────────────────────┘
-                               │
-                               ▼
-                      ┌─────────────────┐
-                      │ Orchestrator    │
-                      │  Agent          │
-                      └─────────────────┘
-                   /         |           \
-                  /          |            \
-                 ▼           ▼             ▼
-        ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-        │ QRParser    │ │ FXRateAgent │ │ RiskGuard   │
-        │  Agent      │ │             │ │   Agent     │
-        └─────────────┘ └─────────────┘ └─────────────┘
-                 │           │             │
-                 ▼           ▼             ▼
-       ┌─────────────┐ ┌─────────────┐ ┌──────────────┐
-       │ decode_qr   │ │ FX + fees   │ │ risk scoring │
-       └─────────────┘ └─────────────┘ └──────────────┘
-                      \      |       /
-                       \     |      /
-                        ▼    ▼     ▼
-                   ┌──────────────────┐
-                   │  Prompt Builder  │
-                   └──────────────────┘
-                               │
-                               ▼
-                  ┌──────────────────────┐
-                  │ Gemini 2.5 Flash API │
-                  │ (HTTP v1 tool call)  │
-                  └──────────────────────┘
-                               │
-                               ▼
-                  ┌────────────────────────┐
-                  │ Final natural-language │
-                  │  explanation returned  │
-                  └────────────────────────┘
+Info + warning + error levels
 
-5. How to Install & Run
-5.1 Clone this repo
-git clone https://github.com/yourusername/qr-payment-agent.git
+✔ Evaluation
+
+Included src/eval/run_eval.py
+
+Runs QR test cases automatically
+
+✔ Deployment Ready
+
+Works with Render / Railway / Cloud Run
+
+Listens on PORT
+
+Environment variable key handling
+
+ 5. Installation (Local)
+Clone the repo:
+git clone https://github.com/YOUR_USERNAME/qr-payment-agent.git
 cd qr-payment-agent
 
-5.2 Create venv
+Create virtual environment:
 python -m venv .venv
+
+
+Activate:
+
+Windows PowerShell:
+
 .venv\Scripts\Activate.ps1
 
-5.3 Install dependencies
+
+Mac/Linux:
+
+source .venv/bin/activate
+
+Install dependencies
 pip install -r requirements.txt
 
-5.4 Set environment variables
-$env:GEMINI_API_KEY="YOUR_REAL_KEY"
-$env:GEMINI_MODEL="gemini-2.5-flash"
+Set your Gemini API key
+$env:GEMINI_API_KEY="YOUR_KEY_HERE"
 
-5.5 Run
+ 6. Run Locally
+Run CLI version
 python -m src.main
 
-6. Evaluation Script
-python -m src.eval.run_eval
+Run Gradio UI
+python -m src.ui.app
+
+
+This opens a browser window:
+
+Upload images
+
+Paste text
+
+View JSON + Explanation
+
+See history
