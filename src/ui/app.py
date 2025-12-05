@@ -237,7 +237,7 @@ with gr.Blocks() as demo:
             image_input = gr.Image(
                 type="filepath",
                 label="QR Image (drag & drop / paste)",
-                sources=["upload", "clipboard", "drag"],  # paste & drag support
+                sources=["upload", "clipboard", ],  # paste & drag support
             )
             qr_text_input = gr.Textbox(
                 lines=2,
