@@ -2,16 +2,15 @@ from src.agents.risk_scorer import RiskScorer
 
 
 class RiskGuardAgent:
-    def __init__(self, memory_bank=None):
-        self.memory = memory_bank
+    def __init__(self, memory=None):
+        self.scorer = RiskScorer(memory)
 
-    def handle(self, merchant_id: str, country: str, amount: float):
-        scorer = RiskScorer(
-            user_profile={},
-            memory_bank=self.memory
-        )
-        return scorer.evaluate(
+    def handle(self, merchant_id: str, country: str, amount: float) -> dict:
+        """
+        Compute risk level and reasons by delegating to RiskScorer.
+        """
+        return self.scorer.evaluate(
             merchant_id=merchant_id,
             country=country,
-            amount=amount
+            amount=amount,
         )

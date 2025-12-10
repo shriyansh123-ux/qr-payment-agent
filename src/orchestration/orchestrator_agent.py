@@ -21,8 +21,9 @@ class OrchestratorAgent(object):
         self.memory = memory_bank
         self.qr_agent = QRParserAgent()
         self.fx_agent = FXRateAgent()
-        self.risk_agent = RiskGuardAgent()
-        self.qr_image_agent = QRImageAgent()  # image-based QR decoder
+        # pass memory_bank into the risk agent
+        self.risk_agent = RiskGuardAgent(memory_bank)
+        self.qr_image_agent = QRImageAgent()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -44,14 +45,11 @@ class OrchestratorAgent(object):
 
     def handle_qr_scan(self, user_id: str, session_id: str, qr_payload: str) -> dict:
         """
-        Handle a single QR payload string.
+        Main orchestration for text-based QR payload.
 
-        Returns a dict with:
-        - session_id
-        - qr_info
-        - fx_result
-        - risk_result
-        - message (LLM or fallback)
+        Supports both:
+        - legacy single-QR dict: {"merchant_id": ..., "country": ..., ...}
+        - multi-QR dict: {"items": [ {...}, {...}, ... ]}
         """
         # 1. Get or create session
         if not session_id:
@@ -61,55 +59,60 @@ class OrchestratorAgent(object):
             state = existing if existing is not None else self.sessions.create_session()
 
         # 2. Load user profile
-        profile = self.memory.get_profile(user_id)
+        profile = self.memory.get_profile(user_id) or {}
         system_prompt = self._build_system_prompt(profile)
 
         # 3. Decode QR
-        qr_info = self.qr_agent.handle(qr_payload)
+        qr_info_raw = self.qr_agent.handle(qr_payload)
+        logger.info("Decoded QR: %s", qr_info_raw)
 
-        # MULTI-QR CASE
-        if isinstance(qr_info, dict) and qr_info.get("multiple"):
-            results = []
-        for item in qr_info["items"]:
-            r = self.handle_qr_scan(
-            user_id=user_id,
-            session_id=session_id,
-            qr_payload=item["raw"]
-        )
-        results.append(r)
+        # --- Normalize single vs multi-QR ---
+        multiple = False
+        items = []
 
-        return {
-        "multiple": True,
-        "count": len(results),
-        "results": results
-        }
+        if isinstance(qr_info_raw, dict) and "items" in qr_info_raw:
+            # New multi-QR format: {"items": [ {...}, {...} ]}
+            items = qr_info_raw["items"]
+            multiple = True
+        elif isinstance(qr_info_raw, list):
+            # If the parser returns a list directly
+            items = qr_info_raw
+            multiple = True
+        else:
+            # Legacy single QR dict
+            items = [qr_info_raw]
 
-        logger.info("Decoded QR: %s", qr_info)
+        # For now, we compute FX + risk based on the *first* item
+        primary_qr = items[0]
 
         # 4. Compute FX and risk
         fx_result = self.fx_agent.handle(
-            amount_local=qr_info["amount"],
-            local_currency=qr_info["currency"],
+            amount_local=primary_qr["amount"],
+            local_currency=primary_qr["currency"],
             home_currency=profile.get("home_currency", HOME_CURRENCY),
         )
         logger.info("FX result: %s", fx_result)
 
         risk_result = self.risk_agent.handle(
-            merchant_id=qr_info["merchant_id"],
-            country=qr_info["country"],
-            amount=qr_info["amount"],
+            merchant_id=primary_qr["merchant_id"],
+            country=primary_qr["country"],
+            amount=primary_qr["amount"],
         )
         logger.info("Risk result: %s", risk_result)
 
         # 5. Prepare conversation + prompt
         state.history = compact_history(state.history)
-        state.history.append({"role": "user", "content": f"User scanned QR: {qr_payload}"})
+        state.history.append(
+            {"role": "user", "content": f"User scanned QR text: {qr_payload}"}
+        )
 
         tool_summary = (
-            f"Decoded QR: {qr_info}\n"
+            f"Primary decoded QR: {primary_qr}\n"
             f"FX result: {fx_result}\n"
             f"Risk result: {risk_result}\n"
         )
+        if multiple:
+            tool_summary += f"(Note: total QR items decoded: {len(items)})\n"
 
         convo_text = "\n".join(f"{m['role']}: {m['content']}" for m in state.history)
 
@@ -118,12 +121,14 @@ class OrchestratorAgent(object):
             + "\n\nConversation so far:\n"
             + convo_text
             + "\n\n---\n"
-            + "Tool results:\n" + tool_summary
+            + "Tool results:\n"
+            + tool_summary
             + "\n\nNow respond to the user. "
-              "Include: final cost in home currency, short fee breakdown, and a risk recommendation."
+              "Include: final cost in home currency, short fee breakdown, "
+              "and a risk recommendation."
         )
 
-        # 6. Call Gemini (HTTP), with safe fallback
+        # 6. Call Gemini via HTTP helper, with safe fallback
         try:
             response_text = call_gemini(prompt)
         except GeminiHTTPError as e:
@@ -149,14 +154,22 @@ class OrchestratorAgent(object):
         state.history.append({"role": "assistant", "content": response_text})
         self.sessions.update_session(state)
 
-        # VERY IMPORTANT: RETURN a dict
-        return {
+        # Build return payload
+        result = {
             "session_id": state.session_id,
-            "qr_info": qr_info,
+            "qr_info": primary_qr,
             "fx_result": fx_result,
             "risk_result": risk_result,
             "message": response_text,
         }
+
+        # If multiple QRs were present, add extra metadata
+        if multiple:
+            result["multiple"] = True
+            result["count"] = len(items)
+            result["all_items"] = items
+
+        return result
 
     # ------------------------------------------------------------------
     # New: image-based multi-QR flow
