@@ -1,45 +1,77 @@
-import os
+# src/tools/decode_qr_image_tool.py
+from __future__ import annotations
+
+from typing import Any, List, Optional, Union
+
 import cv2
 
 
-def ensure_file(path: str):
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"File does not exist: {path}")
-    return path
-
-
-def decode_qr_image(image_path: str):
+def _normalize_decoded(decoded: Any) -> str:
     """
-    Decodes one or multiple QR codes from an image using OpenCV.
-    Returns a list of decoded text payloads (e.g. ["QR:JP:JPY:1500", "QR:US:USD:12"]).
-    Raises ValueError if no QR is found.
+    cv2 QRCodeDetector can return:
+      - a string
+      - empty string / None
+      - list of strings (depending on your wrapper / older code)
+    We normalize everything into a single QR payload string.
     """
-    # 1 — Check file exists
-    ensure_file(image_path)
+    if decoded is None:
+        return ""
 
-    # 2 — Read image
+    # If already a clean string
+    if isinstance(decoded, str):
+        return decoded.strip()
+
+    # If list/tuple -> join
+    if isinstance(decoded, (list, tuple)):
+        parts = []
+        for x in decoded:
+            if x is None:
+                continue
+            if isinstance(x, str) and x.strip():
+                parts.append(x.strip())
+            else:
+                s = str(x).strip()
+                if s:
+                    parts.append(s)
+        return ",".join(parts)
+
+    # Fallback
+    return str(decoded).strip()
+
+
+def decode_qr_image(image_path: str) -> str:
+    """
+    Decode QR payload(s) from an image using OpenCV.
+    Returns a string payload.
+    If multiple QRs are detected, returns comma-separated payloads.
+    """
     img = cv2.imread(image_path)
     if img is None:
-        raise ValueError(f"Could not read image at: {image_path}")
+        raise FileNotFoundError(f"Could not read image: {image_path}")
 
     detector = cv2.QRCodeDetector()
 
-    # 3 — Try multi-QR decode (newer OpenCV)
+    # OpenCV has different APIs depending on version:
+    # - detectAndDecodeMulti returns (ok, decoded_info, points, straight_qrcode)
+    # - detectAndDecode returns (data, points, straight_qrcode)
+    payload = ""
+
     try:
-        # detectAndDecodeMulti returns: retval, decoded_info, points, straight_qrcode
-        retval, decoded_info, points, _ = detector.detectAndDecodeMulti(img)
-        if retval and decoded_info:
-            texts = [s for s in decoded_info if s]
-            if texts:
-                return texts
+        ok, decoded_info, points, _ = detector.detectAndDecodeMulti(img)
+        if ok and decoded_info:
+            payload = _normalize_decoded(decoded_info)
     except Exception:
-        # Some OpenCV builds don't have detectAndDecodeMulti; fall back below
-        pass
+        # fallback to single decode
+        data, _, _ = detector.detectAndDecode(img)
+        payload = _normalize_decoded(data)
 
-    # 4 — Fallback: single QR
-    data, points, _ = detector.detectAndDecode(img)
-    if data:
-        return [data]
+    # Final cleanup
+    payload = payload.strip()
 
-    # 5 — Nothing found
-    raise ValueError("No QR code detected in the image. Try a clearer or higher-resolution QR.")
+    # Some decoders return "['QR:JP:JPY:1500']" like strings — clean that too.
+    if payload.startswith("[") and payload.endswith("]"):
+        # remove brackets and quotes
+        payload = payload.strip("[]").strip()
+        payload = payload.strip("'\"").strip()
+
+    return payload

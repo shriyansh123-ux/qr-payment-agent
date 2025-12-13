@@ -1,32 +1,63 @@
 # src/api/server.py
+from __future__ import annotations
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import logging
+import os
+import tempfile
+import uuid
+from typing import Any, Dict, Optional
+
+from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from typing import List
-from datetime import datetime
-import os
-import shutil
-import traceback
 
-from src.api.models import (
-    TextScanRequest,
-    HistoryResponse,
-    HistoryItem,
-)
+from pydantic import BaseModel
+
 from src.orchestration.orchestrator_agent import OrchestratorAgent
 from src.orchestration.session_manager import InMemorySessionService
 from src.orchestration.memory_manager import SimpleMemoryBank
+from src.persistence.history_store import HistoryStore
+
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("qr-payment-agent")
+
+app = FastAPI(title="QR Payment Agent API", version="1.0.0")
+
+# ---- CORS (React dev server + Render) ----
+# Set FRONTEND_ORIGIN in Render: https://your-frontend-domain.com
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[frontend_origin, "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-Id"],
+)
+
+# ---- Request ID middleware ----
+@app.middleware("http")
+async def add_request_id(request, call_next):
+    request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        logger.exception("Unhandled error request_id=%s path=%s", request_id, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "request_id": request_id},
+            headers={"X-Request-Id": request_id},
+        )
+    response.headers["X-Request-Id"] = request_id
+    return response
 
 
-# --- Setup global services ---
-
+# ---- Agent wiring ----
 sessions = InMemorySessionService()
 memory = SimpleMemoryBank()
 
-# Seed a default profile for a known user (not strictly required now)
-DEFAULT_USER_ID = "api-user"
-memory.upsert_profile(DEFAULT_USER_ID, {
+# Default UI user profile (can be expanded later)
+memory.upsert_profile("user-123", {
     "home_currency": "INR",
     "preferred_card": "VISA",
     "risk_preference": "balanced",
@@ -34,159 +65,147 @@ memory.upsert_profile(DEFAULT_USER_ID, {
 
 orchestrator = OrchestratorAgent(sessions, memory)
 
-# Simple in-memory history for demo
-api_history: List[HistoryItem] = []
+# ---- Persistent history ----
+history_store = HistoryStore(db_path=os.getenv("HISTORY_DB_PATH", "data/history.db"))
 
 
-def ensure_user_profile(user_id: str):
+# ----------------------------
+# Helpers
+# ----------------------------
+def _extract_summary(result: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Ensure that the given user_id has a profile in the memory bank.
-    If not, create a default one.
+    Normalize both single-QR and multi-QR output into:
+    total_home, home_currency, risk_level, note/message
     """
-    profile = memory.get_profile(user_id)
-    if not profile:
-        memory.upsert_profile(user_id, {
-            "home_currency": "INR",
-            "preferred_card": "VISA",
-            "risk_preference": "balanced",
-        })
+    # Multi QR
+    if result.get("multiple") is True:
+        total_home = result.get("total_home", 0.0)
+        msg = result.get("message") or result.get("message", "") or "Multi QR processed."
+        # risk: mixed if not uniform
+        risk_levels = []
+        for item in result.get("items", []):
+            r = (item.get("risk_result") or {}).get("risk_level")
+            if r:
+                risk_levels.append(r)
+        risk_level = "mixed" if len(set(risk_levels)) > 1 else (risk_levels[0] if risk_levels else "unknown")
+        return {
+            "total_home": float(total_home) if isinstance(total_home, (int, float)) else 0.0,
+            "home_currency": "INR",  # your app is INRs by profile; UI can show this
+            "risk_level": risk_level,
+            "note": msg,
+        }
+
+    # Single QR
+    fx = result.get("fx_result") or {}
+    risk = result.get("risk_result") or {}
+    msg = result.get("message") or "Done."
+    return {
+        "total_home": float(fx.get("total_home", 0.0)) if isinstance(fx.get("total_home"), (int, float)) else 0.0,
+        "home_currency": fx.get("to_currency", "INR"),
+        "risk_level": risk.get("risk_level", "unknown"),
+        "note": msg,
+    }
 
 
-app = FastAPI(title="QR Payment Translator API")
-
-# CORS so frontend / tools can call it
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # in real prod, restrict this
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ----------------------------
+# Schemas
+# ----------------------------
+class ScanTextRequest(BaseModel):
+    user_id: str = "user-123"
+    session_id: str = ""
+    qr_payload: str
 
 
+# ----------------------------
+# Routes
+# ----------------------------
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "time": datetime.utcnow().isoformat()}
+    return {"ok": True}
 
 
 @app.post("/api/scan-text")
-def scan_text(req: TextScanRequest):
+def scan_text(req: ScanTextRequest):
     """
-    Scan a text QR payload and return the orchestrator result.
-    We return a simple JSON structure without strict response_model,
-    to avoid Pydantic validation issues while we're debugging.
+    Body: { user_id, session_id, qr_payload }
     """
-    try:
-        ensure_user_profile(req.user_id)
+    user_id = req.user_id
+    session_id = req.session_id or ""
 
-        result = orchestrator.handle_qr_scan(
-            user_id=req.user_id,
-            session_id=req.session_id or "",
-            qr_payload=req.qr_payload,
-        )
+    logger.info("scan_text user_id=%s session_id=%s", user_id, session_id)
 
-        item = HistoryItem(
-            timestamp=datetime.utcnow().isoformat(),
-            mode="text",
-            input_repr=req.qr_payload,
-            home_currency=result["fx_result"].get("to_currency", ""),
-            total_home=result["fx_result"].get("total_home"),
-            risk_level=result["risk_result"].get("risk_level", ""),
-            note=result["message"][:120],
-        )
-        api_history.append(item)
+    result = orchestrator.handle_qr_scan(
+        user_id=user_id,
+        session_id=session_id,
+        qr_payload=req.qr_payload,
+    )
 
-        # Wrap result in a consistent envelope
-        return {
-            "success": True,
-            "session_id": result.get("session_id"),
-            "qr_info": result.get("qr_info"),
-            "fx_result": result.get("fx_result"),
-            "risk_result": result.get("risk_result"),
-            "message": result.get("message"),
-        }
+    summary = _extract_summary(result)
+    history_store.add(
+        user_id=user_id,
+        mode="text",
+        input_repr=req.qr_payload[:2000],
+        total_home=summary["total_home"],
+        home_currency=summary["home_currency"],
+        risk_level=summary["risk_level"],
+        note=summary["note"],
+        raw_result=result,
+    )
 
-    except Exception as e:
-        # Print full traceback in server console for debugging
-        traceback.print_exc()
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e),
-            },
-        )
+    # IMPORTANT: include summary so UI doesn’t struggle
+    return {"result": result, "summary": summary}
 
 
 @app.post("/api/scan-image")
 async def scan_image(
-    user_id: str,
-    session_id: str = "",
     file: UploadFile = File(...),
+    user_id: str = Query("user-123"),
+    session_id: str = Query(""),
 ):
     """
-    Accepts an uploaded image file, saves it temporarily,
-    passes path to orchestrator.handle_qr_image_scan.
+    multipart/form-data file upload
     """
-    temp_path = None
+    logger.info("scan_image user_id=%s session_id=%s filename=%s", user_id, session_id, file.filename)
+
+    # Save upload to a real temp file (Windows/Render safe)
+    suffix = os.path.splitext(file.filename or "qr.png")[1] or ".png"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp_path = tmp.name
+        content = await file.read()
+        tmp.write(content)
+
     try:
-        ensure_user_profile(user_id)
-
-        temp_dir = "temp_uploads"
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_path = os.path.join(temp_dir, file.filename)
-
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
         result = orchestrator.handle_qr_image_scan(
             user_id=user_id,
             session_id=session_id or "",
-            image_path=temp_path,
-        )
-
-        item = HistoryItem(
-            timestamp=datetime.utcnow().isoformat(),
-            mode="image",
-            input_repr=f"image({file.filename})",
-            home_currency=result["fx_result"].get("to_currency", ""),
-            total_home=result["fx_result"].get("total_home"),
-            risk_level=result["risk_result"].get("risk_level", ""),
-            note=result["message"][:120],
-        )
-        api_history.append(item)
-
-        return {
-            "success": True,
-            "session_id": result.get("session_id"),
-            "qr_info": result.get("qr_info"),
-            "fx_result": result.get("fx_result"),
-            "risk_result": result.get("risk_result"),
-            "message": result.get("message"),
-        }
-
-    except Exception as e:
-        traceback.print_exc()
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": str(e),
-            },
+            image_path=tmp_path,
         )
     finally:
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
+        # cleanup
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+    summary = _extract_summary(result)
+    history_store.add(
+        user_id=user_id,
+        mode="image",
+        input_repr=file.filename or "uploaded-image",
+        total_home=summary["total_home"],
+        home_currency=summary["home_currency"],
+        risk_level=summary["risk_level"],
+        note=summary["note"],
+        raw_result=result,
+    )
+
+    return {"result": result, "summary": summary}
 
 
 @app.get("/api/history")
-def get_history():
+def history(user_id: str = "user-123", limit: int = 50):
     """
-    Return history as a simple JSON structure.
+    Returns compact history rows for UI tables.
     """
-    return {
-        "items": [item.dict() for item in api_history]
-    }
+    rows = history_store.list(user_id=user_id, limit=limit)
+    return {"user_id": user_id, "items": rows}

@@ -1,17 +1,13 @@
 from src.tools.decode_qr_image_tool import decode_qr_image
 
-
 class QRImageAgent:
-    """
-    Agent that decodes QR codes from an image.
+    def handle(self, image_path: str) -> str:
+        payload = decode_qr_image(image_path)
+        if not isinstance(payload, str):
+            payload = str(payload)
 
-    Returns:
-        list[str]: list of decoded QR payload strings.
-    """
+        # Normalize
+        payload = payload.strip()
+        payload = payload.replace("\n", "").replace("\r", "").strip()
 
-    def handle(self, image_path: str):
-        texts = decode_qr_image(image_path)
-        if not texts:
-            raise ValueError("No QR text decoded from image.")
-        # Always return a list; orchestrator decides how to handle 1 vs many
-        return texts
+        return payload

@@ -1,0 +1,206 @@
+:root {
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1200px 600px at 20% 0%, #0b1a33 0%, #050a12 55%, #03060c 100%);
+  color: #eaf0ff;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 40px 16px;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.title {
+  margin: 0 0 10px 0;
+  font-size: 44px;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0 0 22px 0;
+  opacity: 0.8;
+}
+
+.card {
+  background: rgba(10, 18, 32, 0.55);
+  border: 1px solid rgba(190, 210, 255, 0.12);
+  box-shadow: 0 10px 35px rgba(0,0,0,0.35);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 18px;
+  margin: 16px 0;
+}
+
+h2 {
+  margin: 6px 0 12px 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(190, 210, 255, 0.18);
+  background: rgba(0,0,0,0.25);
+  color: #eaf0ff;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: rgba(45, 123, 255, 0.45);
+  border-color: rgba(45, 123, 255, 0.75);
+}
+
+.field label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+textarea, input[type="file"] {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(190, 210, 255, 0.18);
+  background: rgba(0,0,0,0.25);
+  color: #eaf0ff;
+  padding: 12px;
+  outline: none;
+}
+
+textarea:focus, input[type="file"]:focus {
+  border-color: rgba(45, 123, 255, 0.75);
+}
+
+.hint {
+  margin-top: 8px;
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+.btn {
+  margin-top: 14px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: #2d7bff;
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+  width: 170px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 60, 60, 0.12);
+  border: 1px solid rgba(255, 60, 60, 0.25);
+  color: #ffd7d7;
+}
+
+.message {
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.totalLine {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.totalLabel {
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+.totalValue {
+  font-weight: 900;
+  font-size: 20px;
+}
+
+.pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(190, 210, 255, 0.18);
+  background: rgba(0,0,0,0.25);
+  font-size: 13px;
+  opacity: 0.95;
+}
+
+.muted {
+  opacity: 0.75;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.rawToggle {
+  margin-top: 10px;
+}
+
+.linkBtn {
+  background: transparent;
+  border: 0;
+  color: #9ec2ff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rawJson {
+  margin-top: 10px;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(190, 210, 255, 0.14);
+  border-radius: 12px;
+  padding: 12px;
+  overflow: auto;
+  max-height: 340px;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(190, 210, 255, 0.14);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+
+.table th, .table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(190, 210, 255, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table thead th {
+  background: rgba(0,0,0,0.25);
+  font-weight: 900;
+}
