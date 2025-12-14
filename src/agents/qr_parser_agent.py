@@ -1,6 +1,6 @@
 import re
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, Any, List
 
 
 class QRParserAgent:
@@ -11,109 +11,60 @@ class QRParserAgent:
     - QR:JP:JPY:1500
     - QR:JP:JPY:1500,QR:US:USD:12
     - newline separated
-    - payload can also arrive as:
-        * ["QR:JP:JPY:1500"] (list)
-        * "['QR:JP:JPY:1500']" (python list-as-string)
+    - accidental python list string: "['QR:JP:JPY:1500']"
     """
 
-    # Strict pattern: QR:<CC>:<CCC>:<amount>
-    # - CC: 2 letters
-    # - CCC: 3 letters
-    # - amount: int or float
-    QR_PATTERN = re.compile(
-        r"^\s*QR:([A-Za-z]{2}):([A-Za-z]{3}):([0-9]+(?:\.[0-9]+)?)\s*$"
-    )
+    def handle(self, payload: str) -> Dict[str, Any]:
+        payload = (payload or "").strip()
 
-    def handle(self, payload: Union[str, List[Any], Tuple[Any, ...], None], strict: bool = False) -> Dict[str, Any]:
-        """
-        strict=False (recommended):
-          - skips invalid parts instead of crashing (good for noisy image decode)
-        strict=True:
-          - raises ValueError on the first invalid part
-        """
-        normalized = self._normalize_payload(payload)
+        # Optional hardening: if payload looks like a python list repr
+        # e.g. "['QR:JP:JPY:1500']" or '["QR:JP:JPY:1500","QR:US:USD:12"]'
+        if payload.startswith("[") and payload.endswith("]"):
+            payload = payload[1:-1].strip()
+            payload = payload.replace('"', "").replace("'", "")
 
-        # Split into possible multiple QR payloads (comma or newline)
-        parts = re.split(r"[,\n]+", normalized)
-        parts = [p.strip() for p in parts if p and p.strip()]
+        # Split into parts by commas/newlines
+        parts = re.split(r"[,\n]+", payload)
+        parts = [p.strip() for p in parts if p.strip()]
 
         items: List[Dict[str, Any]] = []
-        invalid_parts: List[str] = []
-
         for p in parts:
-            try:
-                items.append(self._parse_single(p))
-            except ValueError:
-                if strict:
-                    raise
-                invalid_parts.append(p)
+            items.append(self._parse_single(p))
 
-        if not items:
-            # Nothing parseable found
-            msg = "No valid QR items found in the provided input."
-            if invalid_parts:
-                msg += f" Invalid segments: {invalid_parts[:3]}"  # keep short
-            raise ValueError(msg)
-
-        # Single QR
+        # Single
         if len(items) == 1:
             return items[0]
 
-        # Multiple QRs
-        return {
-            "multiple": True,
-            "count": len(items),
-            "items": items,
-            # optional debug info (handy when strict=False)
-            "invalid_count": len(invalid_parts),
-        }
-
-    def _normalize_payload(self, payload: Union[str, List[Any], Tuple[Any, ...], None]) -> str:
-        """
-        Normalize payload into a clean string.
-        Handles:
-          - None
-          - list/tuple of strings
-          - python-list-string format "['QR:..']"
-        """
-        if payload is None:
-            return ""
-
-        # list/tuple -> join with comma
-        if isinstance(payload, (list, tuple)):
-            parts = [str(x).strip() for x in payload if str(x).strip()]
-            return ",".join(parts)
-
-        s = str(payload).strip()
-
-        # Handle python list-as-string: "['QR:JP:JPY:1500']"
-        # We'll try to extract QR tokens from it safely.
-        if s.startswith("[") and s.endswith("]"):
-            # extract all QR:*:*:* patterns inside
-            found = re.findall(r"QR:[A-Za-z]{2}:[A-Za-z]{3}:[0-9]+(?:\.[0-9]+)?", s)
-            if found:
-                return ",".join(found)
-            # fallback: remove brackets + quotes
-            s = s.strip("[]").strip().strip("'\"").strip()
-
-        return s
+        # Multiple
+        return {"multiple": True, "count": len(items), "items": items}
 
     def _parse_single(self, payload: str) -> Dict[str, Any]:
         """
         Parse single QR: QR:JP:JPY:1500
-        Uses regex to avoid float conversion issues like "1500']"
         """
-        m = self.QR_PATTERN.match(payload)
-        if not m:
+        payload = payload.strip()
+
+        parts = payload.split(":")
+        if len(parts) != 4 or parts[0].strip().upper() != "QR":
             raise ValueError(f"Invalid QR payload format: {payload}")
 
-        country, currency, amount_str = m.group(1), m.group(2), m.group(3)
+        _, country, currency, amount_raw = parts
+        country = country.strip().upper()
+        currency = currency.strip().upper()
+
+        # Hardening: sometimes amount comes like "1500']" or "1500 "
+        # extract first float-looking number
+        amount_raw = amount_raw.strip()
+        m = re.search(r"[-+]?\d+(\.\d+)?", amount_raw)
+        if not m:
+            raise ValueError(f"Invalid amount in QR payload: {payload}")
+        amount = float(m.group(0))
 
         return {
             "merchant_id": "M12345",
-            "country": country.upper(),
-            "currency": currency.upper(),
-            "amount": float(amount_str),
-            "raw_fields": {"raw": payload.strip()},
+            "country": country,
+            "currency": currency,
+            "amount": amount,
+            "raw_fields": {"raw": payload},
             "qr_id": uuid.uuid4().hex,
         }

@@ -1,58 +1,56 @@
-// web/src/lib/api.js
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
-// If VITE_API_BASE is not set, fallback to local FastAPI
-export const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
-
-function reqId() {
-  // simple request id for tracing logs
-  return crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
-}
-
-export async function scanText({ userId = "user-123", sessionId = "", qrPayload }) {
-  const r = await fetch(`${API_BASE}/api/scan-text`, {
+export async function scanText({ user_id, session_id, qr_payload, user_country }) {
+  const res = await fetch(`${API_BASE}/api/scan-text`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Request-Id": reqId(),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      user_id: userId,
-      session_id: sessionId,
-      qr_payload: qrPayload,
+      user_id,
+      session_id,
+      qr_payload,
+      user_country: user_country || null,
     }),
   });
 
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data;
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to scan text");
+  }
+  return res.json();
 }
 
-export async function scanImage({ userId = "user-123", sessionId = "", file }) {
+export async function scanImage({ user_id, session_id, file, user_country }) {
   const fd = new FormData();
   fd.append("file", file);
 
-  const r = await fetch(
-    `${API_BASE}/api/scan-image?user_id=${encodeURIComponent(userId)}&session_id=${encodeURIComponent(sessionId)}`,
-    {
-      method: "POST",
-      headers: {
-        "X-Request-Id": reqId(),
-      },
-      body: fd,
-    }
-  );
+  const url =
+    `${API_BASE}/api/scan-image?user_id=${encodeURIComponent(user_id)}` +
+    `&session_id=${encodeURIComponent(session_id || "")}` +
+    `&user_country=${encodeURIComponent(user_country || "")}`;
 
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data;
+  const res = await fetch(url, { method: "POST", body: fd });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to scan image");
+  }
+  return res.json();
 }
 
-export async function getHistory({ userId = "user-123", limit = 50 }) {
-  const r = await fetch(
-    `${API_BASE}/api/history?user_id=${encodeURIComponent(userId)}&limit=${limit}`,
-    { headers: { "X-Request-Id": reqId() } }
-  );
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
-  return data;
+export async function getHistory({ user_id, session_id }) {
+  const url =
+    `${API_BASE}/api/history?user_id=${encodeURIComponent(user_id)}` +
+    `&session_id=${encodeURIComponent(session_id || "")}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch history");
+  return res.json();
+}
+
+export async function clearHistory({ user_id, session_id }) {
+  const url =
+    `${API_BASE}/api/clear-history?user_id=${encodeURIComponent(user_id)}` +
+    `&session_id=${encodeURIComponent(session_id || "")}`;
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to clear history");
+  return res.json();
 }
