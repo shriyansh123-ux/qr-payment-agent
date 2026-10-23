@@ -214,3 +214,23 @@ Paste text
 View JSON + Explanation
 
 See history
+
+## Security and correctness repair (October 2026)
+
+The API now requires a developer-configured `QR_API_KEY` (at least 24 characters). Generate a key and set it in the **backend environment**, not in frontend source control:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:QR_API_KEY="PASTE_YOUR_GENERATED_KEY"
+python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000
+```
+
+Start the React UI from `web/` with `npm install` followed by `npm run dev`. Enter the same developer key into the local form. This is suitable for **local testing only**: a shared key sent to a browser cannot protect a public multi-user service. For deployment, implement server-side per-user authentication, request limits, HTTPS, and a proxy that handles credentials securely. To run Gradio locally, use `python -m src.ui.app`; it calls the orchestrator directly and does not enforce API key authentication, so do not expose it publicly.
+
+Supported **text** inputs: `QR:JP:JPY:1500` demonstrator strings and **amount-bearing UPI URIs** such as `upi://pay?pa=demo@upi&am=150.00&cu=INR`. Both are **unverified claims**; they do not validate or execute payments. Other QR formats, including many national and EMV payment QR standards, are not currently supported. Do not treat unrecognized formats as valid. Multi-QR demonstrator strings can be separated by commas or newlines.
+
+FX results now use [Frankfurter dated reference rates](https://frankfurter.dev/) with a date/source field. They are **reference estimates**, not current bank/card quotes. If rates cannot be obtained, the API returns 503 instead of using invented 1:1/mock rates. The old nominal 3% markup and 11-unit fixed fee are no longer presented as a provider's actual charge; fees and spreads are **not quoted**. Transaction-size cautions are normalized to USD where rates are available. Risk labels are heuristic and cannot verify a recipient or predict fraud.
+
+Run regression tests with `python -m pytest tests/test_repair_regression.py -q`. The older tests in `tests/` contain some assumptions about live network access and the previous unauthenticated routes; they need updating before the full suite can be considered green. External provider, Docker, and browser smoke tests must also be performed before any deployment.
+
+Sensitive data: don't log or persist actual payee identifiers or raw payment QR strings. The repository already contains tracked development artifacts (bytecode, a sample SQLite database, and demo images); the new `.gitignore` prevents newly untracked copies but does not retroactively remove files from Git history. Review those artifacts manually for secrets or personal information before publication.
