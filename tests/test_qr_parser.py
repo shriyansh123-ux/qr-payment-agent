@@ -1,25 +1,27 @@
-# tests/test_qr_parser.py
-
+"""Strict demo QR and amount-bearing UPI payload validation."""
+import pytest
 from src.agents.qr_parser_agent import QRParserAgent
 
 
-def test_basic_qr_parsing():
-    agent = QRParserAgent()
+def test_demo_qr():
+    qr = QRParserAgent().handle("QR:JP:JPY:1500")
+    assert qr["amount"] == 1500.0
+    assert qr["country"] == "JP"
+    assert qr["merchant_id"] is None
 
-    payload = "QR:JP:JPY:1500"
-    result = agent.handle(payload)
 
-    # basic structure
-    assert isinstance(result, dict)
+def test_multiple_demo_qrs():
+    result = QRParserAgent().handle("QR:JP:JPY:1500,QR:US:USD:12")
+    assert result["multiple"] and result["count"] == 2
 
-    # Required fields
-    assert result["country"] == "JP"
-    assert result["currency"] == "JPY"
-    assert result["amount"] == 1500.0
-    assert "merchant_id" in result
 
-    # Optional: if you *do* add raw info in future, it won't break this test
-    # We just check that if raw_fields exists, it has "raw" inside
-    if "raw_fields" in result:
-        assert isinstance(result["raw_fields"], dict)
-        assert "raw" in result["raw_fields"]
+def test_upi():
+    qr = QRParserAgent().handle("upi://pay?pa=merchant@upi&am=10&cu=INR")
+    assert qr["merchant_id"] == "merchant@upi"
+    assert qr["merchant_verified"] is False
+
+
+@pytest.mark.parametrize("payload", ["QR:JP:JPY:-1", "QR:JP:JPY:0", "QR:JP:JPY:12more", "QR:JP:JPY:1.2.3"])
+def test_reject_bad_amount(payload):
+    with pytest.raises(ValueError):
+        QRParserAgent().handle(payload)
