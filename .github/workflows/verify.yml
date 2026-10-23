@@ -47,6 +47,24 @@ jobs:
         run: npm run build
       - name: Lint React frontend
         run: npm run lint
+      - name: Report npm dependency advisories
+        run: |
+          npm audit --json > /tmp/qr-npm-audit.json || true
+          node - <<'JS'
+          const fs = require("fs");
+          const audit = JSON.parse(fs.readFileSync("/tmp/qr-npm-audit.json", "utf-8"));
+          console.log("Dependency audit totals:", JSON.stringify(audit.metadata?.vulnerabilities || {}));
+          for (const [name, vulnerability] of Object.entries(audit.vulnerabilities || {})) {
+            console.log(JSON.stringify({
+              name,
+              severity: vulnerability.severity,
+              isDirect: vulnerability.isDirect,
+              range: vulnerability.range,
+              fixAvailable: vulnerability.fixAvailable,
+              via: (vulnerability.via || []).map(v => typeof v === "string" ? v : ({title: v.title, url: v.url, range: v.range}))
+            }));
+          }
+          JS
   live_fx:
     runs-on: ubuntu-latest
     timeout-minutes: 8
