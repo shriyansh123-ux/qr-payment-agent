@@ -89,3 +89,44 @@ jobs:
           curl -fsS -X POST -H 'Content-Type: application/json' -H 'X-API-Key: local-ci-key-with-at-least-24-characters' -d '{"qr_payload":"upi://pay?pa=merchant@upi&am=100&cu=INR"}' http://127.0.0.1:8765/api/scan-text | python -c 'import json,sys; v=json.load(sys.stdin); assert v["success"] and v["fx_result"]["total_home"]==100, v'
       - if: always()
         run: docker logs qr-agent-ci || true
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [python, react, docker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install backend and browser dependencies
+        run: |
+          python -m pip install -r requirements-api.txt "playwright==1.56.0" "qrcode==8.2"
+          python -m playwright install --with-deps chromium
+          npm ci --prefix web
+      - name: Start backend and frontend
+        env:
+          QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
+          GEMINI_API_KEY: ""
+          VITE_API_BASE: "http://127.0.0.1:8000"
+        run: |
+          python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 > /tmp/qr-backend.log 2>&1 &
+          (cd web && npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/qr-frontend.log 2>&1) &
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8000/api/health >/dev/null && curl -fsS http://127.0.0.1:5173/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Exercise real browser interactions
+        env:
+          QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
+        run: python integration/browser_smoke.py
+      - name: Show backend/frontend logs when troubleshooting
+        if: always()
+        run: |
+          tail -n 100 /tmp/qr-backend.log 2>/dev/null || true
+          tail -n 100 /tmp/qr-frontend.log 2>/dev/null || true
