@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 
 from src.agents.qr_image_agent import QRImageAgent
 from src.agents.qr_parser_agent import QRParserAgent
-from src.agents.fx_rate_agent import FXRateAgent
+from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable
 from src.agents.risk_guard_agent import RiskGuardAgent
 
 from src.orchestration.session_manager import InMemorySessionService, compact_history
@@ -24,6 +24,12 @@ class OrchestratorAgent:
         self.fx_agent = FXRateAgent()                 # live-first (fallback only if live fails)
         self.risk_agent = RiskGuardAgent(memory_bank)
         self.qr_image_agent = QRImageAgent()
+
+    def _usd_or_none(self, item):
+        try:
+            return self.fx_agent.usd_equivalent(item["amount"], item["currency"])
+        except FXUnavailable:
+            return None
 
     # -------------------------
     # Prompt building
@@ -62,11 +68,11 @@ class OrchestratorAgent:
         return (
             "LLM is unavailable right now, but here is the computed breakdown:\n"
             f"- Base converted amount: {base:.2f} {home_cur}\n"
-            f"- FX markup: {markup:.2f} {home_cur}\n"
-            f"- Network fee (approx.): {fee:.2f} {home_cur}\n"
-            f"- Total estimated charge: {total:.2f} {home_cur}\n"
+            f"- FX markup: not quoted\n"
+            f"- Provider fees: not quoted (displayed fee fields are placeholders)\n"
+            f"- Reference conversion before fees: {total:.2f} {home_cur}\n"
             f"- Risk level: {risk_level}\n"
-            "Recommendation: Proceed only if this total and risk level match your expectation."
+            "This is an estimate, not an authorization or recommendation to pay; independently verify the recipient."
         )
 
     # -------------------------
@@ -125,8 +131,9 @@ class OrchestratorAgent:
                     merchant_id=item["merchant_id"],
                     country=item["country"],
                     amount=item["amount"],
+                    amount_usd=self._usd_or_none(item),
                 )
-                self.memory.add_recent_merchant(item["merchant_id"], item["country"])
+                
 
                 total_home_sum += float(fx.get("total_home", 0.0) or 0.0)
 
@@ -141,10 +148,10 @@ class OrchestratorAgent:
                 })
 
             state.history = compact_history(state.history)
-            state.history.append({"role": "user", "content": f"User scanned MULTI QR: {qr_payload}"})
+            state.history.append({"role": "user", "content": "User scanned multiple payment QR codes."})
 
-            tool_summary = f"Multi-QR results: {results}\nTotal home sum: {total_home_sum}\n"
-            convo_text = "\n".join(f"{m['role']}: {m['content']}" for m in state.history)
+            tool_summary = f"Multiple unverified QR estimates; count={len(results)}, total={total_home_sum}\n"
+            convo_text = "Prior scans omitted to minimize exposure of untrusted content."
 
             prompt = (
                 system_prompt
@@ -163,7 +170,7 @@ class OrchestratorAgent:
                 warning = "⚠️ One or more transactions appear high-risk.\n\n" if any_high else ""
                 response_text = (
                     f"{warning}You scanned **{len(results)}** QR payments.\n\n"
-                    f"**Total estimated charge: {total_home_sum:.2f} {home_currency}**\n"
+                    f"**Reference conversion before provider fees: {total_home_sum:.2f} {home_currency}**\n"
                     "Open the JSON details to see per-QR breakdowns."
                 )
 
@@ -184,7 +191,7 @@ class OrchestratorAgent:
         if not isinstance(qr_info, dict):
             raise ValueError("QR parser returned invalid format (expected dict).")
 
-        logger.info("Decoded QR: %s", qr_info)
+        logger.info("QR parsed successfully")
 
         fx_result = self.fx_agent.handle(
             amount_local=qr_info["amount"],
@@ -197,15 +204,16 @@ class OrchestratorAgent:
             merchant_id=qr_info["merchant_id"],
             country=qr_info["country"],
             amount=qr_info["amount"],
+            amount_usd=self._usd_or_none(qr_info),
         )
-        self.memory.add_recent_merchant(qr_info["merchant_id"], qr_info["country"])
+        
         logger.info("Risk result: %s", risk_result)
 
         state.history = compact_history(state.history)
-        state.history.append({"role": "user", "content": f"User scanned QR: {qr_payload}"})
+        state.history.append({"role": "user", "content": "User scanned a payment QR code."})
 
         tool_summary = (
-            f"Decoded QR: {qr_info}\n"
+            f"QR summary (untrusted merchant claims): currency={qr_info['currency']}, amount={qr_info['amount']}\n"
             f"FX result: {fx_result}\n"
             f"Risk result: {risk_result}\n"
         )

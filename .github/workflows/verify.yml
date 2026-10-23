@@ -1,0 +1,152 @@
+name: Verify QR Payment Agent
+
+on:
+  push:
+    branches:
+      - fix/qr-agent-safety-and-correctness-20261023
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-api.txt "httpx==0.28.1" "pytest==9.0.2" "qrcode==8.2"
+      - name: Syntax-check Python source
+        run: python -m compileall -q src tests
+      - name: Execute all Python tests, including real QR image decoding
+        env:
+          GEMINI_API_KEY: ""
+          QR_API_KEY: "a-ci-only-key-with-no-production-access-1234"
+        run: python -m pytest tests/ -q
+  react:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked JS dependencies
+        run: npm ci
+      - name: Build React frontend
+        run: npm run build
+      - name: Lint React frontend
+        run: npm run lint
+      - name: Report npm dependency advisories
+        run: |
+          npm audit --json > /tmp/qr-npm-audit.json || true
+          node - <<'JS'
+          const fs = require("fs");
+          const audit = JSON.parse(fs.readFileSync("/tmp/qr-npm-audit.json", "utf-8"));
+          console.log("Dependency audit totals:", JSON.stringify(audit.metadata?.vulnerabilities || {}));
+          for (const [name, vulnerability] of Object.entries(audit.vulnerabilities || {})) {
+            console.log(JSON.stringify({
+              name,
+              severity: vulnerability.severity,
+              isDirect: vulnerability.isDirect,
+              range: vulnerability.range,
+              fixAvailable: vulnerability.fixAvailable,
+              via: (vulnerability.via || []).map(v => typeof v === "string" ? v : ({title: v.title, url: v.url, range: v.range}))
+            }));
+          }
+          JS
+      - name: Enforce no known npm advisories
+        run: npm audit --audit-level=low
+  live_fx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install requests==2.32.5
+      - name: Fetch live reference rates and verify date/source
+        run: |
+          python - <<'PY'
+          from src.agents.fx_rate_agent import FXRateAgent
+          agent = FXRateAgent()
+          data = agent.handle(1500, "JPY", "INR")
+          print("FX provider:", data["provider"])
+          print("Rate observation:", data["rate_date"])
+          print("JPY 1500 indicative INR:", data["total_home"])
+          assert data["provider"].startswith("frankfurter-reference")
+          assert data["total_home"] > 0
+          assert data["fee_status"] == "not_quoted"
+          PY
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API container
+        run: docker build -t qr-payment-agent:ci .
+      - name: Start container and smoke test API
+        run: |
+          docker run -d --rm --name qr-agent-ci -p 127.0.0.1:8765:8000 -e QR_API_KEY="local-ci-key-with-at-least-24-characters" qr-payment-agent:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/api/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8765/api/health
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"qr_payload":"QR:JP:JPY:1500"}' http://127.0.0.1:8765/api/scan-text)
+          test "$code" = 401
+          curl -fsS -X POST -H 'Content-Type: application/json' -H 'X-API-Key: local-ci-key-with-at-least-24-characters' -d '{"qr_payload":"upi://pay?pa=merchant@upi&am=100&cu=INR"}' http://127.0.0.1:8765/api/scan-text | python -c 'import json,sys; v=json.load(sys.stdin); assert v["success"] and v["fx_result"]["total_home"]==100, v'
+      - if: always()
+        run: docker logs qr-agent-ci || true
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [python, react, docker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install backend and browser dependencies
+        run: |
+          python -m pip install -r requirements-api.txt "playwright==1.56.0" "qrcode==8.2"
+          python -m playwright install --with-deps chromium
+          npm ci --prefix web
+      - name: Start backend and frontend
+        env:
+          QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
+          GEMINI_API_KEY: ""
+          VITE_API_BASE: "http://127.0.0.1:8000"
+        run: |
+          python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 > /tmp/qr-backend.log 2>&1 &
+          (cd web && npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/qr-frontend.log 2>&1) &
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8000/api/health >/dev/null && curl -fsS http://127.0.0.1:5173/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Exercise real browser interactions
+        env:
+          QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
+        run: python integration/browser_smoke.py
+      - name: Show backend/frontend logs when troubleshooting
+        if: always()
+        run: |
+          tail -n 100 /tmp/qr-backend.log 2>/dev/null || true
+          tail -n 100 /tmp/qr-frontend.log 2>/dev/null || true
