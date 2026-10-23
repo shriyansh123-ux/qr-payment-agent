@@ -1,79 +1,38 @@
-from typing import Dict, Any, List
+"""Transparent caution indicators, NOT fraud detection or merchant verification."""
+from decimal import Decimal, InvalidOperation
 
 
 class RiskScorer:
-    """
-    Explainable risk scoring.
-    Score ranges:
-    - 0 to 30: low
-    - 31 to 65: medium
-    - 66+: high
-    """
-
     def __init__(self, memory=None):
-        self.memory = memory
+        self.memory = memory  # retained for call compatibility; not used as proof of trust
 
-    def score_amount(self, amount: float, reasons: List[str]) -> float:
-        score = 0.0
-        if amount >= 5000:
-            score += 40
-            reasons.append("High amount (>= 5000).")
-        elif amount >= 1000:
+    def evaluate(self, merchant_id, country, amount, amount_usd=None):
+        reasons = ["QR content does not independently verify the merchant or authorize a payment."]
+        score = 20.0  # QR is unverified, even if the same address was seen before
+        if not merchant_id:
+            reasons.append("No merchant identifier was provided; identity unknown.")
+            score += 10
+        else:
+            reasons.append("Claimed payee identifier is unverified; independently confirm the recipient.")
+        if amount_usd is None:
+            return {
+                "risk_score": None, "risk_level": "not_assessed",
+                "reasons": reasons + ["Transaction-size caution not assessed: USD reference rate unavailable."],
+            }
+        try:
+            normalized = Decimal(str(amount_usd))
+            if not normalized.is_finite() or normalized <= 0:
+                raise ValueError("Invalid normalized amount")
+        except (ValueError, InvalidOperation, TypeError) as exc:
+            raise ValueError("Invalid USD equivalent") from exc
+        if normalized >= Decimal("1000"):
+            score += 45
+            reasons.append("High-value transaction (at least USD 1,000 equivalent).")
+        elif normalized >= Decimal("250"):
             score += 20
-            reasons.append("Moderate amount (>= 1000).")
+            reasons.append("Moderate-value transaction (at least USD 250 equivalent).")
         else:
-            score += 5
-        return score
-
-    def score_country(self, country: str, reasons: List[str]) -> float:
-        score = 0.0
-        unfamiliar = {"TH", "EU", "RU", "BR", "NG"}  # sample set (adjust later)
-        if country.upper() in unfamiliar:
-            score += 25
-            reasons.append(f"Unfamiliar/high-fraud country pattern: {country.upper()}.")
-        else:
-            score += 5
-        return score
-
-    def score_merchant(self, merchant_id: str, reasons: List[str]) -> float:
-        """
-        If merchant never seen before in recent history -> add risk.
-        """
-        score = 0.0
-        if self.memory is None or not hasattr(self.memory, "get_recent_merchants"):
-            # memory not wired, keep safe default
-            reasons.append("Merchant history unavailable; using baseline merchant score.")
-            return 10.0
-
-        history = self.memory.get_recent_merchants()
-        seen = any(h["merchant_id"] == merchant_id for h in history)
-
-        if not seen:
-            score += 20
-            reasons.append("Merchant not seen in your recent history.")
-        else:
-            score += 5
-            reasons.append("Merchant seen recently (familiar).")
-
-        return score
-
-    def evaluate(self, merchant_id: str, country: str, amount: float) -> Dict[str, Any]:
-        reasons: List[str] = []
-        score = 0.0
-
-        score += self.score_amount(amount, reasons)
-        score += self.score_country(country, reasons)
-        score += self.score_merchant(merchant_id, reasons)
-
-        if score >= 66:
-            level = "high"
-        elif score >= 31:
-            level = "medium"
-        else:
-            level = "low"
-
-        return {
-            "risk_score": float(score),
-            "risk_level": level,
-            "reasons": reasons,
-        }
+            reasons.append("Smaller transaction value; this does not establish safety.")
+        level = "high" if score >= 65 else "medium" if score >= 35 else "low"
+        reasons.append("Heuristic caution only; not a fraud probability or payment recommendation.")
+        return {"risk_score": float(score), "risk_level": level, "reasons": reasons}

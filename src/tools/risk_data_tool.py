@@ -1,16 +1,6 @@
-def assess_risk(merchant_id: str, country: str, amount: float) -> dict:
-    """
-    Very simple risk heuristic for demo.
-    """
-    risk = "low"
-    reasons = []
+"""Compatibility helper using normalized USD amount, not country stereotypes."""
+from src.agents.risk_scorer import RiskScorer
 
-    if amount > 50000:
-        risk = "medium"
-        reasons.append("High transaction amount.")
 
-    if country not in ("JP", "US", "IN"):
-        risk = "medium"
-        reasons.append("Unfamiliar country for typical user profile.")
-
-    return {"risk_level": risk, "reasons": reasons}
+def assess_risk(merchant_id: str, country: str, amount: float, amount_usd=None):
+    return RiskScorer().evaluate(merchant_id, country, amount, amount_usd)
