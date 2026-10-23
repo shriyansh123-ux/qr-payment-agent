@@ -27,9 +27,7 @@ def run():
                 with page.expect_response(lambda r: "/api/scan-text" in r.url and r.request.method == "POST") as scan_response:
                     page.get_by_role("button", name="Translate", exact=True).click()
                 scan = scan_response.value
-                print("Text scan status:", scan.status, "response:", scan.text()[:1000], flush=True)
-                print("Text scan request:", scan.request.post_data, flush=True)
-                assert scan.ok, "Browser-to-API text scan failed"
+                assert scan.ok, f"Browser-to-API text scan failed: status={scan.status}, error={scan.text()[:300]}"
                 expect(page.locator(".money")).to_have_text("₹100.00", timeout=10000)
                 expect(page.locator(".noteCell")).to_have_count(1)
 

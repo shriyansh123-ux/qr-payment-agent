@@ -10,7 +10,7 @@ export async function scanText({ user_id, session_id, qr_payload, user_country }
       user_id,
       session_id,
       qr_payload,
-      user_country: user_country || null,
+      user_country: /^[A-Z]{2}$/.test(user_country || "") ? user_country : null,
     }),
   });
 
@@ -28,7 +28,7 @@ export async function scanImage({ user_id, session_id, file, user_country }) {
   const url =
     `${API_BASE}/api/scan-image?user_id=${encodeURIComponent(user_id)}` +
     `&session_id=${encodeURIComponent(session_id || "")}` +
-    `&user_country=${encodeURIComponent(user_country || "")}`;
+    `&user_country=${encodeURIComponent(/^[A-Z]{2}$/.test(user_country || "") ? user_country : "")}`;
 
   const res = await fetch(url, { method: "POST", headers: { "X-API-Key": apiKey() }, body: fd });
 

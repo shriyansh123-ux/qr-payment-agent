@@ -62,11 +62,13 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Detect region from browser language (free + stable)
+  // The browser locale is not the user's physical location. Validate its region
+  // (some browsers report e.g. en-US@POSIX or zh-Hant-TW).
   useEffect(() => {
-    const lang = navigator.language || "";
-    const parts = lang.split("-");
-    if (parts.length === 2) setUserCountry(parts[1].toUpperCase());
+    const locale = (navigator.language || "").split("@")[0];
+    const region = locale.split(/[-_]/).slice(1)
+      .find((part) => /^[A-Za-z]{2}$/.test(part));
+    setUserCountry(region ? region.toUpperCase() : "");
   }, []);
 
   const totalINR = useMemo(() => extractTotalINR(result), [result]);
@@ -150,7 +152,7 @@ export default function App() {
         <h1 className="title">Universal QR Payment Translator</h1>
         <p className="subtitle">
           Paste QR text or upload a QR image. Get indicative FX estimates before provider fees and heuristic caution flags in INR.
-          <span className="region">Detected region: <b>{userCountry || "Unknown"}</b></span>
+          <span className="region">Browser locale region: <b>{userCountry || "Unknown"}</b></span>
         </p>
 
         <div className="card">
