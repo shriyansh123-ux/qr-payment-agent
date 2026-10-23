@@ -5,13 +5,14 @@ import { scanImage, scanText, clearHistory } from "./lib/api";
 const USER_ID = "user-123";
 
 function formatINR(x) {
+  if (x === null || x === undefined || x === "") return "Unavailable";
   const n = Number(x);
-  if (Number.isNaN(n)) return "₹0.00";
+  if (!Number.isFinite(n)) return "Unavailable";
   return `₹${n.toFixed(2)}`;
 }
 
 function extractTotalINR(result) {
-  if (!result) return 0;
+  if (!result || result.error) return null;
 
   // multi
   if (result.multiple && typeof result.total_home === "number") return result.total_home;
@@ -20,7 +21,7 @@ function extractTotalINR(result) {
   const fx = result.fx_result;
   if (fx && typeof fx.total_home === "number") return fx.total_home;
 
-  return 0;
+  return null;
 }
 
 function extractRisk(result) {
@@ -48,6 +49,7 @@ function extractNote(result) {
 }
 
 export default function App() {
+  const [apiKeyInput, setApiKeyInput] = useState(() => sessionStorage.getItem("qr_demo_api_key") || "");
   const [mode, setMode] = useState("text"); // "text" | "image"
   const [qrText, setQrText] = useState("QR:JP:JPY:1500");
   const [imageFile, setImageFile] = useState(null);
@@ -89,6 +91,7 @@ export default function App() {
 
   async function onTranslate() {
     setError("");
+    sessionStorage.setItem("qr_demo_api_key", apiKeyInput);
     setLoading(true);
     setResult(null);
 
@@ -146,11 +149,14 @@ export default function App() {
       <div className="container">
         <h1 className="title">Universal QR Payment Translator</h1>
         <p className="subtitle">
-          Paste QR text or upload a QR image. Get FX + fees + risk in INR.
+          Paste QR text or upload a QR image. Get indicative FX estimates before provider fees and heuristic caution flags in INR.
           <span className="region">Detected region: <b>{userCountry || "Unknown"}</b></span>
         </p>
 
         <div className="card">
+          <label className="label" htmlFor="api-key">Local demo API key (required)</label>
+          <input id="api-key" className="textarea" type="password" autoComplete="off" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Enter QR_API_KEY from your backend environment" />
+          <p className="hint">Development only. Never expose a shared secret in a publicly hosted browser app.</p>
           <div className="tabs">
             <button
               className={`tab ${mode === "text" ? "active" : ""}`}
@@ -209,7 +215,7 @@ export default function App() {
           <div className="resultText">{note || "No result yet."}</div>
 
           <div className="resultRow">
-            <div className="total">Total: <span className="money">{formatINR(totalINR)}</span></div>
+            <div className="total">Reference estimate (before fees): <span className="money">{formatINR(totalINR)}</span></div>
             <span className={`pill ${risk}`}>{risk}</span>
           </div>
 

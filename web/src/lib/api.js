@@ -1,9 +1,11 @@
+// Development-only shared key, entered by the user; not bundled at build time.
+const apiKey = () => sessionStorage.getItem("qr_demo_api_key") || "";
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 export async function scanText({ user_id, session_id, qr_payload, user_country }) {
   const res = await fetch(`${API_BASE}/api/scan-text`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-API-Key": apiKey() },
     body: JSON.stringify({
       user_id,
       session_id,
@@ -28,7 +30,7 @@ export async function scanImage({ user_id, session_id, file, user_country }) {
     `&session_id=${encodeURIComponent(session_id || "")}` +
     `&user_country=${encodeURIComponent(user_country || "")}`;
 
-  const res = await fetch(url, { method: "POST", body: fd });
+  const res = await fetch(url, { method: "POST", headers: { "X-API-Key": apiKey() }, body: fd });
 
   if (!res.ok) {
     const txt = await res.text();
@@ -41,7 +43,7 @@ export async function getHistory({ user_id, session_id }) {
   const url =
     `${API_BASE}/api/history?user_id=${encodeURIComponent(user_id)}` +
     `&session_id=${encodeURIComponent(session_id || "")}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { "X-API-Key": apiKey() } });
   if (!res.ok) throw new Error("Failed to fetch history");
   return res.json();
 }
@@ -50,7 +52,7 @@ export async function clearHistory({ user_id, session_id }) {
   const url =
     `${API_BASE}/api/clear-history?user_id=${encodeURIComponent(user_id)}` +
     `&session_id=${encodeURIComponent(session_id || "")}`;
-  const res = await fetch(url, { method: "POST" });
+  const res = await fetch(url, { method: "POST", headers: { "X-API-Key": apiKey() } });
   if (!res.ok) throw new Error("Failed to clear history");
   return res.json();
 }
