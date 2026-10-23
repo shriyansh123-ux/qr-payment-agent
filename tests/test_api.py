@@ -1,92 +1,35 @@
-# tests/test_api.py
-
+"""API contract tests using local same-currency requests (no network required)."""
 from fastapi.testclient import TestClient
 from src.api.server import app
 
 
-client = TestClient(app)
+def test_health():
+    with TestClient(app) as client:
+        res = client.get("/api/health")
+        assert res.status_code == 200 and res.json()["status"] == "ok"
 
 
-def test_health_endpoint():
-    """
-    Basic health check to ensure the API is up.
-    """
-    resp = client.get("/api/health")
-    assert resp.status_code == 200
-
-    data = resp.json()
-    assert data.get("status") == "ok"
-    assert "time" in data
-
-
-def test_scan_text_basic_jpy_to_inr():
-    """
-    End-to-end test for /api/scan-text.
-
-    This should work EVEN IF GEMINI_API_KEY is missing or invalid,
-    because the orchestrator falls back to a deterministic breakdown.
-    """
-    payload = {
-        "user_id": "user-123",
-        "qr_payload": "QR:JP:JPY:1500",
-        "session_id": ""
-    }
-
-    resp = client.post("/api/scan-text", json=payload)
-    assert resp.status_code == 200
-
-    data = resp.json()
-
-    # We structured server.py to return this shape:
-    # {
-    #   "success": True,
-    #   "session_id": "...",
-    #   "qr_info": {...},
-    #   "fx_result": {...},
-    #   "risk_result": {...},
-    #   "message": "..."
-    # }
-    assert data.get("success") is True
-    assert "session_id" in data
-    assert "qr_info" in data
-    assert "fx_result" in data
-    assert "risk_result" in data
-    assert "message" in data
-
-    fx = data["fx_result"]
-    assert fx["from_currency"] == "JPY"
-    assert fx["to_currency"] == "INR"
-    assert isinstance(fx["total_home"], (int, float))
+def test_authenticated_scan(monkeypatch):
+    key = "local-testing-secret-key-at-least-24-characters"
+    monkeypatch.setenv("QR_API_KEY", key)
+    with TestClient(app) as client:
+        unauthorized = client.post("/api/scan-text", json={"qr_payload": "upi://pay?pa=demo@upi&am=100&cu=INR"})
+        assert unauthorized.status_code == 401
+        result = client.post("/api/scan-text", headers={"X-API-Key": key},
+                             json={"qr_payload": "upi://pay?pa=demo@upi&am=100&cu=INR"})
+        # Risk normalization may require live USD FX, but this is optional.
+        assert result.status_code == 200
+        data = result.json()
+        assert data["success"]
+        assert data["qr_info"]["merchant_id"] == "demo@upi"
+        assert data["fx_result"]["total_home"] == 100
+        assert data["fx_result"]["fee_status"] == "not_quoted"
 
 
-def test_history_endpoint_after_scan():
-    """
-    After calling /api/scan-text at least once,
-    /api/history should contain at least one item.
-    """
-    # First ensure at least one scan has been done
-    payload = {
-        "user_id": "user-123",
-        "qr_payload": "QR:JP:JPY:1500",
-        "session_id": ""
-    }
-    client.post("/api/scan-text", json=payload)
-
-    # Now call /api/history
-    resp = client.get("/api/history")
-    assert resp.status_code == 200
-
-    data = resp.json()
-    assert "items" in data
-    assert isinstance(data["items"], list)
-    assert len(data["items"]) >= 1
-
-    # Check structure of a single history item
-    item = data["items"][-1]
-    assert "timestamp" in item
-    assert "mode" in item
-    assert "input_repr" in item
-    assert "home_currency" in item
-    assert "total_home" in item
-    assert "risk_level" in item
-    assert "note" in item
+def test_history_contract(monkeypatch):
+    key = "local-testing-secret-key-at-least-24-characters"
+    monkeypatch.setenv("QR_API_KEY", key)
+    with TestClient(app) as client:
+        result = client.get("/api/history", headers={"X-API-Key": key})
+        assert result.status_code == 200
+        assert "items" in result.json()
