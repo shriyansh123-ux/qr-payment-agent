@@ -24,8 +24,13 @@ def run():
 
                 page.locator("#api-key").fill(KEY)
                 page.locator("textarea").fill(PAYLOAD)
-                page.get_by_role("button", name="Translate", exact=True).click()
-                expect(page.locator(".money")).to_have_text("₹100.00", timeout=30000)
+                with page.expect_response(lambda r: "/api/scan-text" in r.url and r.request.method == "POST") as scan_response:
+                    page.get_by_role("button", name="Translate", exact=True).click()
+                scan = scan_response.value
+                print("Text scan status:", scan.status, "response:", scan.text()[:1000], flush=True)
+                print("Text scan request:", scan.request.post_data, flush=True)
+                assert scan.ok, "Browser-to-API text scan failed"
+                expect(page.locator(".money")).to_have_text("₹100.00", timeout=10000)
                 expect(page.locator(".noteCell")).to_have_count(1)
 
                 page.get_by_role("button", name="Image", exact=True).click()
