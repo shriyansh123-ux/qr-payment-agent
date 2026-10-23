@@ -1,236 +1,64 @@
-Universal Global QR Payment Translator
+# QR Payment Agent — Cross-Currency QR Reference Translator
 
-A Multi-Agent AI System for Real-Time FX Conversion, Risk Scoring & QR Payment Interpretation
+**Status: educational prototype, not a payment processor or fraud-verification system.** The app does not send money, authenticate merchants, or quote final bank/card charges.
 
- 1. Problem Statement
+The repository has a **React/Vite frontend**, **FastAPI backend**, a **standalone Gradio demo**, and a CLI. It demonstrates QR input parsing, indicative currency conversion, explainable transaction caution flags, and an optional Gemini explanation.
 
-When travelling internationally, consumers frequently scan foreign QR codes for payments. But they face several issues:
+## Supported inputs
 
-No visibility of actual cost in home currency
+- Demo format: `QR:JP:JPY:1500`. Multiple demo strings can be separated with commas or newlines.
+- Amount-bearing UPI payment URI: `upi://pay?pa=merchant@upi&am=100&cu=INR`.
+- PNG, JPEG or WebP QR images up to 3 MiB and 12 megapixels (FastAPI upload limit).
 
-Hidden FX markups and network fees
+This is **not** a generic decoder for every country's payment QR. EMV merchant-presented formats, dynamic no-amount UPI QR, and other schemes are not fully implemented. Demo QR strings have **no validated merchant identifier**; a payee address extracted from UPI is **unverified**.
 
-No fraud/risk guidance
+## Local setup
 
-Different QR formats across countries
+Requires Python 3.13 and Node.js 22 or compatible versions.
 
-No unified tool supporting both QR images and QR text payloads
+1. Clone the repository and create a virtual environment.
+2. Install API dependencies: `pip install -r requirements-api.txt`.
+3. Generate a random development key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Store it locally in the backend's `QR_API_KEY` environment variable (at least 24 characters). **Never commit a key.**
+4. Start the backend:
+   - PowerShell: `$env:QR_API_KEY="YOUR_GENERATED_KEY"; python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000`
+   - macOS/Linux: `QR_API_KEY="YOUR_GENERATED_KEY" python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000`
+5. In a second terminal, run `cd web`, `npm ci`, then `npm run dev`.
+6. Open `http://127.0.0.1:5173/` and enter the same local developer key into the form.
 
- This leads to overpayment, confusion, and security risk.
+The app uses an `X-API-Key` header for this **local, single-user demo**. A shared secret entered into a browser **cannot securely authenticate multiple internet users**. Keep both interfaces on your local trusted network.
 
- 2. Solution Overview
+For the separate Gradio UI, install `pip install -r requirements.txt` and run `python -m src.ui.app`. The Gradio path calls the orchestrator directly and does **not** enforce the API's authentication. Do not expose Gradio publicly. CLI: `python -m src.main`.
 
-The Universal Global QR Payment Translator solves this with a multi-agent AI system that:
+## Calculations, risk flags, AI
 
- Parses QR codes
+The FX agent uses [Frankfurter](https://frankfurter.dev/) **dated reference rates**, not executed payment-provider exchange rates. It returns its provider and observation date. It rejects unavailable or stale data rather than silently using made-up currency rates.
 
-From text: QR:JP:JPY:1500
+**Provider FX markups, card fees, payment network fees, and final payable amounts are unknown.** The response's `total_home` is the *reference conversion before provider fees*; nominal fee fields are placeholders with `fee_status: not_quoted`. It must not be represented as a final charge.
 
-From images (drag & drop, upload, clipboard)
+Risk scores are simple **caution heuristics**, primarily based on the USD-equivalent size and whether the purported merchant is identified. They are not fraud probabilities. If an additional USD conversion rate is unavailable, the transaction-size risk is `not_assessed`. Previously encountered payees and country codes alone do not prove safety.
 
-Supports multiple QRs in one string (multi-QR parsing)
+Gemini is optional: supply `GEMINI_API_KEY` only in a trusted backend environment. Without it the orchestrator uses a deterministic explanation. The model is never responsible for the numerical rate calculation. Prompts avoid raw QR/payment addresses where possible.
 
- Computes FX conversion
+## Tests and build
 
-Uses live FX API (open.er-api.com)
+The repair pull request runs GitHub Actions jobs for:
+- `python -m pytest tests/ -q` — offline tests, including generated real QR images and upload errors.
+- `npm ci && npm run build && npm run lint && npm audit --audit-level=low` in `web/`.
+- A live reference FX API request.
+- Docker API startup and authenticated/unauthenticated smoke tests.
+- Playwright/Chromium end-to-end local text scan, image scan, result display, and clear-history flow.
 
-Automatic fallback to mock FX rates when offline
+Run locally: `python -m pytest tests/ -q` (requires `pytest`, `httpx`, and `qrcode` in addition to API requirements).
 
-Includes markup, network fee, conversion breakdown
+The Dockerfile serves the FastAPI backend at port 8000, **not** the React or Gradio interface.
 
- Performs Intelligent Risk Scoring
+## Limitations / before production
 
-A multi-signal reasoning engine evaluates:
+- Replace the shared development API key with a real identity provider and per-user authorization.
+- Add quotas/rate limiting, CSRF/abuse protection as appropriate, durable isolated user sessions, and secure payment-data handling.
+- Integrate verified merchant identities, scheme-specific QR validators, bank/provider fee quotes, and authoritative risk signals if claiming real-world applicability.
+- Independently confirm the payment recipient before authorizing a transaction in a trusted payment application.
+- Review tracked historical development artifacts and any repository history for sensitive data. A `.gitignore` does not remove already committed files.
+- Existing `src/persistence/history_store.py` is not wired to the React history view; the backend's session history is in memory and the React history table is browser state.
 
-Signal	Logic
-Country familiarity	Distance risk scoring
-Transaction size	Large / unusual payments
-Merchant history	First-time merchant → higher risk
-Bad merchant list	Suspicious merchants flagged
-User preference	Balanced / conservative / risky
-Currency patterns	Deviations from normal behavior
-
-Generates: risk level + score + reasons
-
- Uses an LLM (Gemini) for explanations
-
-The explanation agent produces natural-language guidance like:
-
-“This transaction appears low risk. Your final cost will be ₹860.75 after FX markup and fees.”
-
- Provides a clean interactive UI (Gradio)
-
-Text input
-
-Image upload (filepath)
-
-Multi-QR output
-
-JSON inspector
-
-History table
-
-Dark mode
-
-Status indicators
-
- Fully deployable as a cloud web app
-
-Supports Render / Railway / Cloud Run.
-
- 3. System Architecture
-+---------------------------+
-|       User Interface      | (Gradio UI)
-| - Image Upload            |
-| - Text Input              |
-| - History Panel           |
-+-------------+-------------+
-              |
-              v
-+-------------+-------------------------------+
-|               Orchestrator Agent            |
-|  (Manages flow, session, memory, LLM calls) |
-+-------------+-------------------------------+
-      |                 |                |
-      v                 v                v
-+-----------+    +-------------+   +----------------+
-| QR Agent  |    | FX Agent    |   | Risk Agent     |
-| (text &   |    | - Live FX   |   | - Multi-signal |
-| image)    |    | - Markup    |   |   scoring      |
-+-----------+    | - Fees      |   +----------------+
-                  |
-                  v
-            +-------------+
-            | Explanation |
-            |   Agent     |
-            |  (Gemini)   |
-            +-------------+
-
- 4. Features Implemented (Capstone Requirements)
-✔ Multi-Agent System
-
-Orchestrator agent
-
-QR parser agent
-
-QR image agent
-
-FX agent
-
-Risk scoring agent
-
-Explanation (LLM) agent
-
-✔ Tools
-
-Custom Tool: Live FX API
-
-Custom Tool: QR image decoder
-
-Built-in Tools: Gemini API (LLM)
-
-HTTP client for external API
-
-✔ Session & Memory
-
-InMemorySessionService
-
-SimpleMemoryBank
-
-Merchant history
-
-Risk preference memory
-
-Context compaction
-
-✔ Context Engineering
-
-Dynamic system prompts
-
-Conversation history compaction
-
-Tool result summarization
-
-✔ Observability
-
-Logging using Python logging
-
-Info + warning + error levels
-
-✔ Evaluation
-
-Included src/eval/run_eval.py
-
-Runs QR test cases automatically
-
-✔ Deployment Ready
-
-Works with Render / Railway / Cloud Run
-
-Listens on PORT
-
-Environment variable key handling
-
- 5. Installation (Local)
-Clone the repo:
-git clone https://github.com/YOUR_USERNAME/qr-payment-agent.git
-cd qr-payment-agent
-
-Create virtual environment:
-python -m venv .venv
-
-
-Activate:
-
-Windows PowerShell:
-
-.venv\Scripts\Activate.ps1
-
-
-Mac/Linux:
-
-source .venv/bin/activate
-
-Install dependencies
-pip install -r requirements.txt
-
-Set your Gemini API key
-$env:GEMINI_API_KEY="YOUR_KEY_HERE"
-
- 6. Run Locally
-Run CLI version
-python -m src.main
-
-Run Gradio UI
-python -m src.ui.app
-
-
-This opens a browser window:
-
-Upload images
-
-Paste text
-
-View JSON + Explanation
-
-See history
-
-## Security and correctness repair (October 2026)
-
-The API now requires a developer-configured `QR_API_KEY` (at least 24 characters). Generate a key and set it in the **backend environment**, not in frontend source control:
-
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-$env:QR_API_KEY="PASTE_YOUR_GENERATED_KEY"
-python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000
-```
-
-Start the React UI from `web/` with `npm install` followed by `npm run dev`. Enter the same developer key into the local form. This is suitable for **local testing only**: a shared key sent to a browser cannot protect a public multi-user service. For deployment, implement server-side per-user authentication, request limits, HTTPS, and a proxy that handles credentials securely. To run Gradio locally, use `python -m src.ui.app`; it calls the orchestrator directly and does not enforce API key authentication, so do not expose it publicly.
-
-Supported **text** inputs: `QR:JP:JPY:1500` demonstrator strings and **amount-bearing UPI URIs** such as `upi://pay?pa=demo@upi&am=150.00&cu=INR`. Both are **unverified claims**; they do not validate or execute payments. Other QR formats, including many national and EMV payment QR standards, are not currently supported. Do not treat unrecognized formats as valid. Multi-QR demonstrator strings can be separated by commas or newlines.
-
-FX results now use [Frankfurter dated reference rates](https://frankfurter.dev/) with a date/source field. They are **reference estimates**, not current bank/card quotes. If rates cannot be obtained, the API returns 503 instead of using invented 1:1/mock rates. The old nominal 3% markup and 11-unit fixed fee are no longer presented as a provider's actual charge; fees and spreads are **not quoted**. Transaction-size cautions are normalized to USD where rates are available. Risk labels are heuristic and cannot verify a recipient or predict fraud.
-
-Run regression tests with `python -m pytest tests/test_repair_regression.py -q`. The older tests in `tests/` contain some assumptions about live network access and the previous unauthenticated routes; they need updating before the full suite can be considered green. External provider, Docker, and browser smoke tests must also be performed before any deployment.
-
-Sensitive data: don't log or persist actual payee identifiers or raw payment QR strings. The repository already contains tracked development artifacts (bytecode, a sample SQLite database, and demo images); the new `.gitignore` prevents newly untracked copies but does not retroactively remove files from Git history. Review those artifacts manually for secrets or personal information before publication.
+This project should be presented as an engineering prototype, not as a production-ready global QR-payment translator.

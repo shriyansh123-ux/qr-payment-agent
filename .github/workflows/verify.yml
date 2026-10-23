@@ -65,6 +65,8 @@ jobs:
             }));
           }
           JS
+      - name: Enforce no known npm advisories
+        run: npm audit --audit-level=low
   live_fx:
     runs-on: ubuntu-latest
     timeout-minutes: 8
