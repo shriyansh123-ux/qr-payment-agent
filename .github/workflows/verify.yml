@@ -1,0 +1,49 @@
+name: Verify QR Payment Agent
+
+on:
+  push:
+    branches:
+      - fix/qr-agent-safety-and-correctness-20261023
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "fastapi==0.123.7" "httpx==0.28.1" "pytest==9.0.2" "requests==2.32.5" "pillow==12.0.0" "python-multipart==0.0.20" "opencv-python-headless==4.12.0.88" "numpy==2.2.6"
+      - name: Syntax-check Python source
+        run: python -m compileall -q src tests
+      - name: Execute all Python tests
+        env:
+          GEMINI_API_KEY: ""
+          QR_API_KEY: "a-ci-only-key-with-no-production-access-1234"
+        run: python -m pytest tests/ -q
+  react:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked JS dependencies
+        run: npm ci
+      - name: Build React frontend
+        run: npm run build
+      - name: Lint React frontend
+        run: npm run lint
