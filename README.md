@@ -31,7 +31,7 @@ For the separate Gradio UI, install `pip install -r requirements.txt` and run `p
 
 ## Calculations, risk flags, AI
 
-The FX agent uses [Frankfurter](https://frankfurter.dev/) **dated reference rates**, not executed payment-provider exchange rates. It returns its provider and observation date. It rejects unavailable or stale data rather than silently using made-up currency rates.
+The FX agent uses [Frankfurter](https://frankfurter.dev/) **dated reference rates**, first from its blended v2 feed and then (only if needed) from its ECB-backed v1 reference feed. Both enforce positive rates and publication dates no more than seven days old; neither is an executed payment-provider exchange rate. It returns its provider and observation date. It rejects unavailable or stale data rather than silently using made-up currency rates.
 
 **Provider FX markups, card fees, payment network fees, and final payable amounts are unknown.** The response's `total_home` is the *reference conversion before provider fees*; nominal fee fields are placeholders with `fee_status: not_quoted`. It must not be represented as a final charge.
 

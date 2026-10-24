@@ -77,31 +77,29 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install requests==2.32.5
-      - name: Verify external FX provider and fail-closed stale-rate handling
+      - name: Validate real JPY/INR and INR/USD reference conversions
         run: |
           python - <<'PY'
           import requests
-          from datetime import date
           from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable
-
-          response = requests.get("https://api.frankfurter.dev/v2/rate/JPY/INR", timeout=8)
-          response.raise_for_status()
-          data = response.json()
-          observed = date.fromisoformat(data["date"])
-          assert float(data["rate"]) > 0
-          is_fresh = 0 <= (date.today() - observed).days <= 7
-          print("Provider response date:", observed.isoformat())
-          print("Reference rate passes freshness policy:", is_fresh)
+          session = requests.Session()
           try:
-              result = FXRateAgent().handle(1500, "JPY", "INR")
-          except FXUnavailable:
-              assert not is_fresh, "Fresh provider rate was unexpectedly rejected"
-              print("Application correctly rejects this stale rate rather than inventing FX")
-          else:
-              assert is_fresh
-              assert result["provider"].startswith("frankfurter-reference")
-              assert result["fee_status"] == "not_quoted"
-              print("Fresh FX reference conversion validated:", result["total_home"])
+              for pair in [("JPY", "INR"), ("INR", "USD")]:
+                  base, quote = pair
+                  primary = session.get(f"https://api.frankfurter.dev/v2/rate/{base}/{quote}", timeout=8)
+                  print("Blended provider", base, quote, primary.status_code,
+                        (primary.json().get("date") if primary.ok else "unavailable"), flush=True)
+                  ecb = session.get("https://api.frankfurter.dev/v1/latest",
+                                    params={"base": base, "symbols": quote}, timeout=8)
+                  print("ECB provider", base, quote, ecb.status_code,
+                        (ecb.json().get("date") if ecb.ok else "unavailable"), flush=True)
+                  amount = FXRateAgent().handle(1500, base, quote)
+                  print("Selected rate", amount["provider"], amount["rate_date"],
+                        amount["total_home"], flush=True)
+                  assert amount["total_home"] > 0
+                  assert amount["provider"].startswith("frankfurter-")
+          finally:
+              session.close()
           PY
   docker:
     runs-on: ubuntu-latest

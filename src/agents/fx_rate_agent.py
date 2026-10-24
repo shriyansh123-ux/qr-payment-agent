@@ -7,7 +7,7 @@ import time
 import requests
 
 logger = logging.getLogger(__name__)
-_RATE_CACHE = {}  # (base, quote): (Decimal rate, observation date, expiration)
+_RATE_CACHE = {}  # (base, quote): (Decimal rate, observation date, provider, expiration)
 
 
 class FXUnavailable(RuntimeError):
@@ -47,6 +47,31 @@ class FXRateAgent:
             logger.warning("Reference FX unavailable for %s/%s: %s", from_cur, to_cur, type(exc).__name__)
             raise FXUnavailable(f"Reference FX rate unavailable for {from_cur}/{to_cur}") from exc
 
+    def _fetch_ecb_rate(self, from_cur, to_cur):
+        """Independent ECB reference series through Frankfurter's maintained v1 endpoint.
+
+        The deprecated v1 API is still supported. Do not combine two potentially
+        stale rates or silently substitute a fictional rate.
+        """
+        try:
+            response = requests.get(
+                "https://api.frankfurter.dev/v1/latest",
+                params={"base": from_cur, "symbols": to_cur},
+                timeout=8,
+            )
+            response.raise_for_status()
+            data = response.json()
+            rate = Decimal(str(data["rates"][to_cur]))
+            observed = date.fromisoformat(data["date"])
+            if (not rate.is_finite() or rate <= 0 or
+                    not 0 <= (date.today() - observed).days <= 7):
+                raise ValueError("Missing, invalid, or stale ECB reference rate")
+            return rate, observed.isoformat()
+        except (requests.RequestException, KeyError, ValueError, TypeError, InvalidOperation) as exc:
+            logger.warning("ECB reference FX unavailable for %s/%s: %s",
+                           from_cur, to_cur, type(exc).__name__)
+            raise FXUnavailable(f"Reference FX rate unavailable for {from_cur}/{to_cur}") from exc
+
     def get_rate(self, from_cur, to_cur):
         from_cur = (from_cur or "").strip().upper()
         to_cur = (to_cur or "").strip().upper()
@@ -56,11 +81,17 @@ class FXRateAgent:
             return Decimal("1"), date.today().isoformat(), "same-currency"
         key = (from_cur, to_cur)
         cached = _RATE_CACHE.get(key)
-        if cached and cached[2] > time.monotonic():
-            return cached[0], cached[1], "frankfurter-reference (cached)"
-        rate, observed = self._fetch_live_rate(from_cur, to_cur)
-        _RATE_CACHE[key] = (rate, observed, time.monotonic() + self.cache_ttl_seconds)
-        return rate, observed, "frankfurter-reference"
+        if cached and cached[3] > time.monotonic():
+            return cached[0], cached[1], cached[2] + " (cached)"
+        try:
+            rate, observed = self._fetch_live_rate(from_cur, to_cur)
+            provider = "frankfurter-reference"
+        except FXUnavailable:
+            # Fall back to a distinct, dated ECB series, not an invented rate.
+            rate, observed = self._fetch_ecb_rate(from_cur, to_cur)
+            provider = "frankfurter-ecb-reference"
+        _RATE_CACHE[key] = (rate, observed, provider, time.monotonic() + self.cache_ttl_seconds)
+        return rate, observed, provider
 
     def usd_equivalent(self, amount_local, local_currency):
         rate, _, _ = self.get_rate(local_currency, "USD")
