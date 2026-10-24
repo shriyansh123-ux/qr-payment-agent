@@ -84,3 +84,19 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for Windows PowerShell, Docker, and manually 
 - Requests are throttled by client address and route: e.g., scans 30/minute, other endpoints 60/minute. Counters can be shared through a Redis-compatible `REDIS_URL`; otherwise the limiter uses bounded in-process memory.
 - Render **Free Key Value** is memory-only and loses entries on restart. Its role here is temporary abuse counters, never financial records.
 - Never put real payment QR values or customer identity information into this educational demo.
+
+## Optional account-backed history (Free-tier architecture)
+
+The project includes opt-in accounts and database-backed summaries. They are **disabled on Render by default**: the Free Render web service has ephemeral storage, and Render Free PostgreSQL expires after 30 days. Do not offer persistent user accounts until you configure a suitable durable database with an explicit retention plan.
+
+Run a local prototype without buying anything:
+
+- `QR_DATABASE_URL=sqlite:////absolute/path/to/qr_accounts.sqlite`
+- `QR_ALLOW_REGISTRATION=true` (only in local, controlled development)
+- `POST /api/account/register`, `POST /api/account/login`, `POST /api/account/logout`
+- `GET /api/account/me`, `GET /api/account/history`, `POST /api/account/clear-history`
+- `POST /api/account/scan-text` takes a bearer token, not the shared demo key.
+- Passwords use salted scrypt, random expiring bearer tokens are stored only as SHA256 digests. Database queries are parameterized.
+- Persisted scan summaries exclude raw QR text and recipient/payee identifiers. Accounts are scoped to the authenticated user ID; testing covers cross-account isolation.
+
+A PostgreSQL URI in `QR_DATABASE_URL` activates the same account routes with psycopg. Keep credentials server-side and restrict database access; use TLS and a provider with a suitable deletion/backup policy. Note there is no email verification, recovery, or mature session/device management yet; production financial-service authentication requires more work.
