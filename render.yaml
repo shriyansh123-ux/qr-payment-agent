@@ -1,0 +1,14 @@
+# Development preview only: public URLs need a separate access gateway.
+services:
+  - type: web
+    name: qr-payment-agent-demo
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeployTrigger: off
+    healthCheckPath: /api/health
+    envVars:
+      - key: QR_API_KEY
+        sync: false
+      - key: PORT
+        value: "10000"
