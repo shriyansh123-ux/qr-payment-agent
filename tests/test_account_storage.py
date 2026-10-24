@@ -45,3 +45,20 @@ def test_registration_off_by_default(tmp_path, monkeypatch):
     with TestClient(app) as client:
         assert client.post("/api/account/register",json={
           "email":"test@example.org","password":"long-enough-test-password"}).status_code==403
+
+
+
+def test_account_status_reflects_database_config_only(monkeypatch):
+    monkeypatch.delenv("QR_DATABASE_URL", raising=False)
+    monkeypatch.setenv("QR_ALLOW_REGISTRATION", "true")
+    with TestClient(app) as client:
+        state = client.get("/api/account/status")
+        assert state.status_code == 200
+        assert state.json()["enabled"] is False
+        assert state.json()["registration_enabled"] is False
+    monkeypatch.setenv("QR_DATABASE_URL", "sqlite:////tmp/demo-test-only.sqlite")
+    monkeypatch.delenv("QR_ALLOW_REGISTRATION", raising=False)
+    with TestClient(app) as client:
+        state = client.get("/api/account/status").json()
+        assert state["enabled"] is True
+        assert state["registration_enabled"] is False
