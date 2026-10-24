@@ -13,11 +13,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from PIL import Image, UnidentifiedImageError
 from src.agents.fx_rate_agent import FXUnavailable
+from src.api.limits import api_rate_limit
 from src.orchestration.orchestrator_agent import OrchestratorAgent
 from src.orchestration.session_manager import InMemorySessionService
 from src.orchestration.memory_manager import SimpleMemoryBank
 
 app = FastAPI(title="QR Payment Agent API")
+app.middleware("http")(api_rate_limit)
 origins = [v.strip() for v in os.getenv("QR_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if v.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False,
                    allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-API-Key"])

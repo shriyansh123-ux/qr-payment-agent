@@ -76,3 +76,11 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for Windows PowerShell, Docker, and manually 
 - React history no longer retains raw pasted QR strings or image filenames, and limits stored raw details to computed estimates and caution data. Clicking **Show Raw JSON** for the current result still exposes the parsed transaction in this browser session.
 - Gemini's API key is now sent in the `x-goog-api-key` HTTP header, not as a query string. Error messages no longer include raw provider response bodies.
 - These steps **do not** provide verified merchant identity, multi-user login, strong DDoS protection, or secure persistent storage. Treat hosted use as a synthetic-data educational demo.
+
+## Free-tier enhancement: EMV QR and API throttling
+
+- Supports a **restricted subset** of EMVCo merchant-presented QR with a provided amount, valid TLV structure, mandatory fields, and CRC-16 checksum. A CRC only detects accidental modification; it does **not** verify merchant identity or make payment safe.
+- Accepts common ISO numeric currency codes (USD, INR, JPY, EUR, GBP, SGD and selected others). The implementation is deliberately not a complete payment-scheme certification or a universal EMV interpreter.
+- Requests are throttled by client address and route: e.g., scans 30/minute, other endpoints 60/minute. Counters can be shared through a Redis-compatible `REDIS_URL`; otherwise the limiter uses bounded in-process memory.
+- Render **Free Key Value** is memory-only and loses entries on restart. Its role here is temporary abuse counters, never financial records.
+- Never put real payment QR values or customer identity information into this educational demo.
