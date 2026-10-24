@@ -77,18 +77,31 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install requests==2.32.5
-      - name: Fetch live reference rates and verify date/source
+      - name: Verify external FX provider and fail-closed stale-rate handling
         run: |
           python - <<'PY'
-          from src.agents.fx_rate_agent import FXRateAgent
-          agent = FXRateAgent()
-          data = agent.handle(1500, "JPY", "INR")
-          print("FX provider:", data["provider"])
-          print("Rate observation:", data["rate_date"])
-          print("JPY 1500 indicative INR:", data["total_home"])
-          assert data["provider"].startswith("frankfurter-reference")
-          assert data["total_home"] > 0
-          assert data["fee_status"] == "not_quoted"
+          import requests
+          from datetime import date
+          from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable
+
+          response = requests.get("https://api.frankfurter.dev/v2/rate/JPY/INR", timeout=8)
+          response.raise_for_status()
+          data = response.json()
+          observed = date.fromisoformat(data["date"])
+          assert float(data["rate"]) > 0
+          is_fresh = 0 <= (date.today() - observed).days <= 7
+          print("Provider response date:", observed.isoformat())
+          print("Reference rate passes freshness policy:", is_fresh)
+          try:
+              result = FXRateAgent().handle(1500, "JPY", "INR")
+          except FXUnavailable:
+              assert not is_fresh, "Fresh provider rate was unexpectedly rejected"
+              print("Application correctly rejects this stale rate rather than inventing FX")
+          else:
+              assert is_fresh
+              assert result["provider"].startswith("frankfurter-reference")
+              assert result["fee_status"] == "not_quoted"
+              print("Fresh FX reference conversion validated:", result["total_home"])
           PY
   docker:
     runs-on: ubuntu-latest
