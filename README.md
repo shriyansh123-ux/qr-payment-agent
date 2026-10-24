@@ -100,3 +100,14 @@ Run a local prototype without buying anything:
 - Persisted scan summaries exclude raw QR text and recipient/payee identifiers. Accounts are scoped to the authenticated user ID; testing covers cross-account isolation.
 
 A PostgreSQL URI in `QR_DATABASE_URL` activates the same account routes with psycopg. Keep credentials server-side and restrict database access; use TLS and a provider with a suitable deletion/backup policy. Note there is no email verification, recovery, or mature session/device management yet; production financial-service authentication requires more work.
+
+
+## React account workspace and controlled free-tier benchmarking
+
+The React frontend now has **QR demo** and **Accounts** tabs. Accounts are feature-discovered via `GET /api/account/status`. When no `QR_DATABASE_URL` is set (as on the existing Render Free service), the Accounts tab safely explains that accounts and durable scan history are unavailable. No user data is silently stored on the ephemeral web-service filesystem.
+
+To develop locally with no cloud charges, configure an isolated SQLite database with `QR_DATABASE_URL=sqlite:////absolute/path/account-demo.sqlite` and set `QR_ALLOW_REGISTRATION=true`. Accounts are deliberately educational: no email verification, recovery or MFA, so do **not** enter real financial identifiers or reuse passwords. React keeps the bearer token in component memory and clears it on reload/sign-out. The account UI currently supports text QR scans and user-isolated summary history; the original demo retains image uploads.
+
+For an optional durable free hosted PostgreSQL instance, Neon's Free plan is suitable for hobby use (see [Neon pricing](https://neon.com/pricing)); check its current limits. Create the database yourself on Neon's **Free** tier, then set its TLS-enabled PostgreSQL connection URL privately as `QR_DATABASE_URL` in your Render service's environment variables. Only enable `QR_ALLOW_REGISTRATION=true` after testing connections and account isolation. **Never add the database URL, passwords or API keys to source control or chat messages.** Database capacity limits, provider suspensions and lack of mature identity features remain important caveats.
+
+CI runs `integration/load_smoke.py` against a **localhost** FastAPI instance configured for deterministic USD-to-USD synthetic QR scans. It submits 20 scans across four workers, records p50/p95 latency and measured requests/s, and asserts successful responses. It explicitly refuses non-localhost URLs to protect Free-tier hosting from unwanted traffic. These measurements are not a capacity or uptime guarantee.

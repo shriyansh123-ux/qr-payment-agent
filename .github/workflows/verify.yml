@@ -122,6 +122,38 @@ jobs:
           curl -fsS -X POST -H 'Content-Type: application/json' -H 'X-API-Key: local-ci-key-with-at-least-24-characters' -d '{"qr_payload":"upi://pay?pa=merchant@upi&am=100&cu=INR"}' http://127.0.0.1:8765/api/scan-text | python -c 'import json,sys; v=json.load(sys.stdin); assert v["success"] and v["fx_result"]["total_home"]==100, v'
       - if: always()
         run: docker logs qr-agent-ci || true
+  load_local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [python]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-api.txt
+      - name: Start local test server (USD same-currency, synthetic inputs)
+        env:
+          HOME_CURRENCY: USD
+          QR_API_KEY: "ci-local-load-key-with-at-least-24-characters"
+          GEMINI_API_KEY: ""
+        run: |
+          python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8766 > /tmp/qr-local-load.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8766/api/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/qr-local-load.log
+          exit 1
+      - name: Run bounded localhost concurrency smoke benchmark
+        env:
+          QR_API_KEY: "ci-local-load-key-with-at-least-24-characters"
+          QR_LOAD_BASE: http://127.0.0.1:8766
+        run: python integration/load_smoke.py
+      - name: Show server logs if failed
+        if: failure()
+        run: tail -n 100 /tmp/qr-local-load.log
+
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -146,6 +178,8 @@ jobs:
         env:
           QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
           GEMINI_API_KEY: ""
+          QR_DATABASE_URL: "sqlite:////tmp/qr-browser-ci-accounts.sqlite"
+          QR_ALLOW_REGISTRATION: "true"
         run: |
           python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 > /tmp/qr-backend.log 2>&1 &
           for i in $(seq 1 45); do
