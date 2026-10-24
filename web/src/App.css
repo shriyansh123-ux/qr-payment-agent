@@ -266,3 +266,12 @@ body {
   border: 1px solid rgba(255,255,255,0.08);
   overflow: auto;
 }
+
+.accountForm { display: grid; gap: 12px; max-width: 480px; }
+.accountForm button { width: fit-content; margin-top: 6px; }
+.accountBar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin:18px 0; }
+.accountBar h3 { margin: 0; }
+.accountNotice { padding: 12px; border-radius: 12px; background: rgba(30,130,120,0.2); }
+.accountResult { margin: 16px 0; padding: 16px; border-radius: 12px; background: rgba(35,100,230,0.15); }
+.hintText { line-height: 1.65; color: #d0dcf2; }
+.accountTable { min-width: 580px; }
