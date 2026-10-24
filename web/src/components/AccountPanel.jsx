@@ -39,11 +39,32 @@ export default function AccountPanel({ userCountry }) {
     setRows(saved.items || []);
   }
 
+  function clearSession() {
+    setToken("");
+    setProfile("");
+    setRows([]);
+    setResult(null);
+    setPassword("");
+    setMessage("");
+    setAction("login");
+  }
+
+  function handleFailure(problem, fallback, authenticated = true) {
+    setMessage("");
+    if (authenticated && problem.status === 401) {
+      clearSession();
+      setError("Your session has expired. Sign in again.");
+    } else {
+      setError(problem.message || fallback);
+    }
+  }
+
   async function authenticate(event) {
     event.preventDefault();
     setError("");
     setMessage("");
     setBusy(true);
+    let authenticated = false;
     try {
       if (action === "register") {
         await accountRegister(email, password);
@@ -52,6 +73,7 @@ export default function AccountPanel({ userCountry }) {
       } else {
         const session = await accountLogin(email, password);
         const currentToken = session.access_token;
+        authenticated = true;
         // No browser storage. Reloading clears this credential.
         setToken(currentToken);
         setProfile(email.trim().toLowerCase());
@@ -60,13 +82,15 @@ export default function AccountPanel({ userCountry }) {
         setMessage("Signed in for this tab. Use synthetic QR data only.");
       }
     } catch (problem) {
-      setError(problem.message || "Account action failed.");
+      // A rejected password is not an expired authenticated session.
+      handleFailure(problem, "Account action failed.", authenticated);
     } finally {
       setBusy(false);
     }
   }
 
   async function scan() {
+    setMessage("");
     if (!qrText.trim()) { setError("Enter QR text."); return; }
     setBusy(true);
     setError("");
@@ -76,13 +100,14 @@ export default function AccountPanel({ userCountry }) {
       setResult(response);
       await refreshHistory(token);
     } catch (problem) {
-      setError(problem.message || "Scan failed.");
+      handleFailure(problem, "Scan failed.");
     } finally {
       setBusy(false);
     }
   }
 
   async function clearHistory() {
+    setMessage("");
     setBusy(true);
     setError("");
     try {
@@ -91,7 +116,7 @@ export default function AccountPanel({ userCountry }) {
       setResult(null);
       setMessage("Saved account history cleared.");
     } catch (problem) {
-      setError(problem.message || "Unable to clear history.");
+      handleFailure(problem, "Unable to clear history.");
     } finally {
       setBusy(false);
     }
@@ -100,17 +125,16 @@ export default function AccountPanel({ userCountry }) {
   async function signOut() {
     setBusy(true);
     setError("");
+    setMessage("");
+    let notice = "Signed out of this tab.";
     try {
       await accountLogout(token);
     } catch {
       // Clear local credentials regardless, but do not claim server revocation.
-      setMessage("Signed out of this tab; server revocation was not confirmed.");
+      notice = "Signed out of this tab; server revocation was not confirmed.";
     } finally {
-      setToken("");
-      setProfile("");
-      setRows([]);
-      setResult(null);
-      setPassword("");
+      clearSession();
+      setMessage(notice);
       setBusy(false);
     }
   }

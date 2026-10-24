@@ -71,7 +71,9 @@ async function accountRequest(path, { method = "GET", token = "", body } = {}) {
   try { data = await res.json(); } catch { data = {}; }
   if (!res.ok) {
     const message = typeof data?.detail === "string" ? data.detail : "Account request failed";
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
   }
   return data;
 }
