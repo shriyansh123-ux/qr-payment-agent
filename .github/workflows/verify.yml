@@ -3,7 +3,8 @@ name: Verify QR Payment Agent
 on:
   push:
     branches:
-      - fix/qr-agent-safety-and-correctness-20261023
+      - main
+      - deploy/single-service-render-20261024
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -76,18 +77,31 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install requests==2.32.5
-      - name: Fetch live reference rates and verify date/source
+      - name: Verify external FX provider and fail-closed stale-rate handling
         run: |
           python - <<'PY'
-          from src.agents.fx_rate_agent import FXRateAgent
-          agent = FXRateAgent()
-          data = agent.handle(1500, "JPY", "INR")
-          print("FX provider:", data["provider"])
-          print("Rate observation:", data["rate_date"])
-          print("JPY 1500 indicative INR:", data["total_home"])
-          assert data["provider"].startswith("frankfurter-reference")
-          assert data["total_home"] > 0
-          assert data["fee_status"] == "not_quoted"
+          import requests
+          from datetime import date
+          from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable
+
+          response = requests.get("https://api.frankfurter.dev/v2/rate/JPY/INR", timeout=8)
+          response.raise_for_status()
+          data = response.json()
+          observed = date.fromisoformat(data["date"])
+          assert float(data["rate"]) > 0
+          is_fresh = 0 <= (date.today() - observed).days <= 7
+          print("Provider response date:", observed.isoformat())
+          print("Reference rate passes freshness policy:", is_fresh)
+          try:
+              result = FXRateAgent().handle(1500, "JPY", "INR")
+          except FXUnavailable:
+              assert not is_fresh, "Fresh provider rate was unexpectedly rejected"
+              print("Application correctly rejects this stale rate rather than inventing FX")
+          else:
+              assert is_fresh
+              assert result["provider"].startswith("frankfurter-reference")
+              assert result["fee_status"] == "not_quoted"
+              print("Fresh FX reference conversion validated:", result["total_home"])
           PY
   docker:
     runs-on: ubuntu-latest
@@ -104,6 +118,7 @@ jobs:
             sleep 2
           done
           curl -fsS http://127.0.0.1:8765/api/health
+          curl -fsS http://127.0.0.1:8765/ | grep -q '<div id="root">'
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"qr_payload":"QR:JP:JPY:1500"}' http://127.0.0.1:8765/api/scan-text)
           test "$code" = 401
           curl -fsS -X POST -H 'Content-Type: application/json' -H 'X-API-Key: local-ci-key-with-at-least-24-characters' -d '{"qr_payload":"upi://pay?pa=merchant@upi&am=100&cu=INR"}' http://127.0.0.1:8765/api/scan-text | python -c 'import json,sys; v=json.load(sys.stdin); assert v["success"] and v["fx_result"]["total_home"]==100, v'
@@ -128,25 +143,25 @@ jobs:
           python -m pip install -r requirements-api.txt "playwright==1.56.0" "qrcode==8.2"
           python -m playwright install --with-deps chromium
           npm ci --prefix web
-      - name: Start backend and frontend
+          npm run --prefix web build
+      - name: Start combined frontend and API on one port
         env:
           QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
           GEMINI_API_KEY: ""
-          VITE_API_BASE: "http://127.0.0.1:8000"
         run: |
           python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000 > /tmp/qr-backend.log 2>&1 &
-          (cd web && npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/qr-frontend.log 2>&1) &
           for i in $(seq 1 45); do
-            if curl -fsS http://127.0.0.1:8000/api/health >/dev/null && curl -fsS http://127.0.0.1:5173/ >/dev/null; then exit 0; fi
+            if curl -fsS http://127.0.0.1:8000/api/health >/dev/null && curl -fsS http://127.0.0.1:8000/ | grep -q '<div id="root">'; then exit 0; fi
             sleep 2
           done
+          cat /tmp/qr-backend.log
           exit 1
       - name: Exercise real browser interactions
         env:
           QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
+          QR_BROWSER_URL: "http://127.0.0.1:8000"
         run: python integration/browser_smoke.py
       - name: Show backend/frontend logs when troubleshooting
         if: always()
         run: |
           tail -n 100 /tmp/qr-backend.log 2>/dev/null || true
-          tail -n 100 /tmp/qr-frontend.log 2>/dev/null || true

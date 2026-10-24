@@ -50,7 +50,7 @@ The repair pull request runs GitHub Actions jobs for:
 
 Run locally: `python -m pytest tests/ -q` (requires `pytest`, `httpx`, and `qrcode` in addition to API requirements).
 
-The Dockerfile serves the FastAPI backend at port 8000, **not** the React or Gradio interface.
+The Dockerfile now builds the React frontend and serves it together with FastAPI at one origin; Gradio remains a separate local interface.
 
 ## Limitations / before production
 
@@ -62,3 +62,8 @@ The Dockerfile serves the FastAPI backend at port 8000, **not** the React or Gra
 - Existing `src/persistence/history_store.py` is not wired to the React history view; the backend's session history is in memory and the React history table is browser state.
 
 This project should be presented as an engineering prototype, not as a production-ready global QR-payment translator.
+
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Windows PowerShell, Docker, and manually configured Render hosting instructions, environment variables, and security limitations.

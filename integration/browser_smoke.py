@@ -19,7 +19,7 @@ def run():
             browser = playwright.chromium.launch(headless=True)
             page = browser.new_page()
             try:
-                page.goto("http://127.0.0.1:5173", wait_until="domcontentloaded")
+                page.goto(os.getenv("QR_BROWSER_URL", "http://127.0.0.1:5173"), wait_until="domcontentloaded")
                 expect(page.get_by_role("heading", name="Universal QR Payment Translator")).to_be_visible()
 
                 page.locator("#api-key").fill(KEY)

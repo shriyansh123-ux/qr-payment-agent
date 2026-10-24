@@ -7,3 +7,4 @@ __pycache__/
 .venv/
 temp_uploads/
 data/*.db
+web/.env
