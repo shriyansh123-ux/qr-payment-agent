@@ -42,7 +42,27 @@ def run():
 
                 page.get_by_role("button", name="Clear History").click()
                 expect(page.get_by_text("No history yet.")).to_be_visible()
-                print("Browser E2E passed: authenticated text scan, image scan, result, history, clear")
+                # Optional account flows run only against a locally configured SQLite DB.
+                page.get_by_role("button", name="Accounts", exact=True).click()
+                expect(page.get_by_role("heading", name="Account workspace")).to_be_visible()
+                page.get_by_role("button", name="Create test account").click()
+                page.locator("#account-email").fill("synthetic.browser@example.invalid")
+                page.locator("#account-password").fill("synthetic-example-password-1234")
+                page.get_by_role("button", name="Register", exact=True).click()
+                expect(page.get_by_text("Test account created. Sign in to continue.")).to_be_visible()
+                page.locator("#account-password").fill("synthetic-example-password-1234")
+                page.get_by_role("button", name="Sign in", exact=True).last.click()
+                expect(page.get_by_text("Signed in:")).to_be_visible()
+                page.locator("#account-qr").fill(PAYLOAD)
+                page.get_by_role("button", name="Translate and save summary").click()
+                expect(page.get_by_text("Stored summary history")).to_be_visible()
+                expect(page.locator(".accountTable tbody tr")).to_have_count(1, timeout=15000)
+                assert "merchant@upi" not in page.locator(".accountTable").inner_text()
+                page.get_by_role("button", name="Sign out").click()
+                expect(page.locator("#account-email")).to_be_visible()
+                assert page.evaluate("localStorage.length") == 0
+                print("Browser E2E passed: demo image/text, account registration/login/history/logout")
+
             finally:
                 browser.close()
 

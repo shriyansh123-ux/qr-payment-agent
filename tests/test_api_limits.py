@@ -30,3 +30,15 @@ def test_api_rate_limiter_blocks_and_sends_retry_after(monkeypatch):
 def test_health_not_rate_limited():
     result = asyncio.run(limits.api_rate_limit(Request(path="/api/health"), next_response))
     assert result.status_code == 200
+
+
+
+def test_login_has_stricter_throttling(monkeypatch):
+    limits._buckets.clear()
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.setattr(limits.time, "monotonic", lambda: 2000)
+    route = Request(path="/api/account/login", host="synthetic-auth-client")
+    for _ in range(6):
+        assert asyncio.run(limits.api_rate_limit(route, next_response)).status_code == 200
+    assert asyncio.run(limits.api_rate_limit(route, next_response)).status_code == 429
+    limits._buckets.clear()

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { scanImage, scanText, clearHistory } from "./lib/api";
+import AccountPanel from "./components/AccountPanel";
 
 const USER_ID = "user-123";
 
@@ -50,6 +51,7 @@ function extractNote(result) {
 
 export default function App() {
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const [workspace, setWorkspace] = useState("demo");
   const [mode, setMode] = useState("text"); // "text" | "image"
   const [qrText, setQrText] = useState("QR:JP:JPY:1500");
   const [imageFile, setImageFile] = useState(null);
@@ -160,6 +162,11 @@ export default function App() {
           <span className="region">Browser locale region: <b>{userCountry || "Unknown"}</b></span>
         </p>
 
+        <div className="tabs" role="group" aria-label="Workspace">
+          <button type="button" className={`tab ${workspace === "demo" ? "active" : ""}`} onClick={() => setWorkspace("demo")}>QR demo</button>
+          <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} onClick={() => setWorkspace("account")}>Accounts</button>
+        </div>
+        {workspace === "account" ? <AccountPanel userCountry={userCountry} /> : <>
         <div className="card">
           <label className="label" htmlFor="api-key">Local demo API key (required)</label>
           <input id="api-key" className="textarea" type="password" autoComplete="off" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Enter QR_API_KEY from your backend environment" />
@@ -274,7 +281,7 @@ export default function App() {
             </table>
           </div>
         </div>
-
+        </>}
       </div>
     </div>
   );

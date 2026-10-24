@@ -57,3 +57,38 @@ export async function clearHistory({ apiKey, user_id, session_id }) {
   if (!res.ok) throw new Error("Failed to clear history");
   return res.json();
 }
+
+
+// Optional database-backed account workspace. Tokens remain only in React state.
+async function accountRequest(path, { method = "GET", token = "", body } = {}) {
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/account${path}`, {
+    method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  let data;
+  try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok) {
+    const message = typeof data?.detail === "string" ? data.detail : "Account request failed";
+    throw new Error(message);
+  }
+  return data;
+}
+
+export const accountStatus = () => accountRequest("/status");
+export const accountRegister = (email, password) =>
+  accountRequest("/register", { method: "POST", body: { email, password } });
+export const accountLogin = (email, password) =>
+  accountRequest("/login", { method: "POST", body: { email, password } });
+export const accountLogout = (token) =>
+  accountRequest("/logout", { method: "POST", token });
+export const accountMe = (token) => accountRequest("/me", { token });
+export const accountHistory = (token) => accountRequest("/history", { token });
+export const accountClearHistory = (token) =>
+  accountRequest("/clear-history", { method: "POST", token });
+export const accountScanText = (token, qr_payload, user_country) =>
+  accountRequest("/scan-text", {
+    method: "POST", token,
+    body: { qr_payload, user_country: /^[A-Z]{2}$/.test(user_country || "") ? user_country : null },
+  });

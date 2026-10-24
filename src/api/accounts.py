@@ -117,6 +117,18 @@ def _email(value):
     return normal
 
 
+@router.get("/status")
+def account_status():
+    """Feature discovery without exposing connection strings or user details."""
+    configured = bool(os.getenv("QR_DATABASE_URL", "").strip())
+    return {
+        "enabled": configured,
+        "registration_enabled": configured and
+                                os.getenv("QR_ALLOW_REGISTRATION", "false").lower() == "true",
+        "notice": "Educational demo only; do not enter real payment information.",
+    }
+
+
 @router.post("/register", status_code=201)
 def register(credentials: Credentials):
     if os.getenv("QR_ALLOW_REGISTRATION", "false").lower() != "true":

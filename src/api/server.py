@@ -24,7 +24,7 @@ app.include_router(accounts_router)
 app.middleware("http")(api_rate_limit)
 origins = [v.strip() for v in os.getenv("QR_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if v.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False,
-                   allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-API-Key"])
+                   allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-API-Key", "Authorization"])
 sessions = InMemorySessionService()
 memory = SimpleMemoryBank()
 orchestrator = OrchestratorAgent(sessions, memory)
