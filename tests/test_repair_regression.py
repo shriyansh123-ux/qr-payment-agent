@@ -2,10 +2,17 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable
+from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable, _RATE_CACHE
 from src.agents.qr_parser_agent import QRParserAgent
 from src.agents.risk_scorer import RiskScorer
 from src.api.server import app
+
+
+@pytest.fixture(autouse=True)
+def isolate_fx_cache():
+    _RATE_CACHE.clear()
+    yield
+    _RATE_CACHE.clear()
 
 
 @pytest.mark.parametrize("bad", ["QR:JP:JPY:-5", "QR:JP:JPY:0", "QR:JP:JPY:1hello", "QR:JP:JPY:1.123", "QR:JP:JPY:4junk"])
