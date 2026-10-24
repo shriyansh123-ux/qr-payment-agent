@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { scanImage, scanText, clearHistory } from "./lib/api";
 import AccountPanel from "./components/AccountPanel";
+import ScanInsights from "./components/ScanInsights";
 
 const USER_ID = "user-123";
 
@@ -237,6 +238,7 @@ export default function App() {
             <summary>Show Raw JSON</summary>
             <pre>{JSON.stringify(result, null, 2)}</pre>
           </details>
+          <ScanInsights result={result} />
         </div>
 
         <div className="card">
