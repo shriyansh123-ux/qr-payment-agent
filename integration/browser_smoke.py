@@ -30,6 +30,9 @@ def run():
                 assert scan.ok, f"Browser-to-API text scan failed: status={scan.status}, error={scan.text()[:300]}"
                 expect(page.locator(".money")).to_have_text("₹100.00", timeout=10000)
                 expect(page.locator(".noteCell")).to_have_count(1)
+                expect(page.get_by_text("Text QR (hidden)")).to_be_visible()
+                assert PAYLOAD not in page.locator("tbody").inner_text()
+                assert page.evaluate("sessionStorage.getItem(\'qr_demo_api_key\')") is None
 
                 page.get_by_role("button", name="Image", exact=True).click()
                 page.locator("input[type=file]").set_input_files(str(qr_image))
