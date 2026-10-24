@@ -58,6 +58,47 @@ def run():
                 expect(page.get_by_text("Stored summary history")).to_be_visible()
                 expect(page.locator(".accountTable tbody tr")).to_have_count(1, timeout=15000)
                 assert "merchant@upi" not in page.locator(".accountTable").inner_text()
+                insights = page.get_by_role("region", name="Understand this QR")
+                expect(insights).to_be_visible()
+                expect(insights.get_by_text("Recipient unverified", exact=True)).to_be_visible()
+                expect(insights.get_by_text("Same currency · no FX conversion", exact=True)).to_be_visible()
+                expect(insights.get_by_text("Why this caution level?", exact=True)).to_be_visible()
+                assert "merchant@upi" not in insights.inner_text()
+                insights.get_by_text("Explore provider fees", exact=True).click()
+                insights.get_by_label("FX markup (%)", exact=True).fill("3")
+                insights.get_by_label("Fixed fee (INR)", exact=True).fill("5")
+                expect(insights.locator(".feeEstimate strong")).to_have_text("INR 108.00")
+                expect(insights.get_by_text("Added cost: INR 8.00", exact=True)).to_be_visible()
+                insights.get_by_label("FX markup (%)", exact=True).fill("-1")
+                expect(insights.get_by_role("alert")).to_be_visible()
+                expect(insights.locator(".feeEstimate")).to_have_count(0)
+                insights.get_by_label("FX markup (%)", exact=True).fill("0")
+                insights.get_by_label("Fixed fee (INR)", exact=True).fill("0")
+
+                # Exercise per-QR explanations without relying on a live FX provider.
+                def multi_scan(route):
+                    route.fulfill(json={"multiple": True, "total_home": 300, "items": [
+                        {"qr_info": {"amount": 100, "raw_fields": {"scheme": "UPI"}},
+                         "fx_result": {"from_currency": "INR", "to_currency": "INR",
+                                       "rate": 1, "total_home": 100, "rate_date": "2026-10-23",
+                                       "provider": "same-currency"},
+                         "risk_result": {"risk_level": "low", "reasons": ["Synthetic first caution"]}},
+                        {"qr_info": {"amount": 2, "raw_fields": {"scheme": "DEMO"}},
+                         "fx_result": {"from_currency": "USD", "to_currency": "INR",
+                                       "rate": 100, "total_home": 200, "rate_date": "2026-10-23",
+                                       "provider": "synthetic-test-source"},
+                         "risk_result": {"risk_level": "not_assessed", "reasons": ["Synthetic second caution"]}}
+                    ]})
+
+                page.route("**/api/account/scan-text", multi_scan)
+                page.get_by_role("button", name="Translate and save summary").click()
+                expect(insights.locator(".scanBreakdown")).to_have_count(2)
+                expect(insights.get_by_text("Synthetic second caution", exact=True)).to_be_visible()
+                expect(insights.get_by_text("synthetic-test-source", exact=True)).to_be_visible()
+                expect(insights.get_by_text("2026-10-23", exact=True)).to_have_count(2)
+                expect(insights.get_by_text("Caution: not assessed", exact=True)).to_be_visible()
+                expect(insights.locator(".feeEstimate strong")).to_have_text("INR 300.00")
+                page.unroute("**/api/account/scan-text", multi_scan)
                 page.get_by_role("button", name="Sign out").click()
                 expect(page.locator("#account-email")).to_be_visible()
                 expect(page.get_by_role("status")).to_have_text("Signed out of this tab.")
@@ -102,6 +143,7 @@ def run():
                     expect(page.get_by_role("button", name="Sign out")).to_have_count(0)
                     expect(page.locator(".accountTable")).to_have_count(0)
                     expect(page.locator(".accountResult")).to_have_count(0)
+                    expect(page.locator(".scanInsights")).to_have_count(0)
                     expect(page.locator(".accountNotice")).to_have_count(0)
                     page.unroute(f"**/api/account/{endpoint}", expired)
 
