@@ -49,7 +49,7 @@ function extractNote(result) {
 }
 
 export default function App() {
-  const [apiKeyInput, setApiKeyInput] = useState(() => sessionStorage.getItem("qr_demo_api_key") || "");
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const [mode, setMode] = useState("text"); // "text" | "image"
   const [qrText, setQrText] = useState("QR:JP:JPY:1500");
   const [imageFile, setImageFile] = useState(null);
@@ -85,7 +85,11 @@ export default function App() {
       total: extractTotalINR(resObj),
       risk: extractRisk(resObj),
       note: extractNote(resObj),
-      raw: resObj,
+      raw: {
+        fx_result: resObj?.fx_result || null,
+        risk_result: resObj?.risk_result || null,
+        total_home: resObj?.total_home || null,
+      },
     };
 
     setHistory((prev) => [row, ...prev]);
@@ -93,7 +97,6 @@ export default function App() {
 
   async function onTranslate() {
     setError("");
-    sessionStorage.setItem("qr_demo_api_key", apiKeyInput);
     setLoading(true);
     setResult(null);
 
@@ -104,6 +107,7 @@ export default function App() {
         const payload = (qrText || "").trim();
         if (!payload) throw new Error("Please enter QR text.");
         res = await scanText({
+          apiKey: apiKeyInput,
           user_id: USER_ID,
           session_id: sessionId,
           qr_payload: payload,
@@ -111,7 +115,7 @@ export default function App() {
         });
         setSessionId(res.session_id || sessionId);
         setResult(res);
-        pushHistoryRow(payload, res);
+        pushHistoryRow("Text QR (hidden)", res);
       } else {
         if (!imageFile) throw new Error("Please choose a QR image file.");
         res = await scanImage({
@@ -122,14 +126,14 @@ export default function App() {
         });
         setSessionId(res.session_id || sessionId);
         setResult(res);
-        pushHistoryRow(imageFile.name, res);
+        pushHistoryRow("QR image", res);
       }
     } catch (e) {
       const msg = e?.message || "Failed to translate";
       setError(msg);
       const fake = { error: msg, message: msg };
       setResult(fake);
-      pushHistoryRow(mode === "text" ? (qrText || "text") : (imageFile?.name || "image"), fake);
+      pushHistoryRow(mode === "text" ? "Text QR (hidden)" : "QR image", fake);
     } finally {
       setLoading(false);
     }
@@ -138,7 +142,7 @@ export default function App() {
   async function onClearHistory() {
     setError("");
     try {
-      await clearHistory({ user_id: USER_ID, session_id: sessionId });
+      await clearHistory({ apiKey: apiKeyInput, user_id: USER_ID, session_id: sessionId });
       setHistory([]);
       setResult(null);
     } catch (e) {
@@ -158,7 +162,7 @@ export default function App() {
         <div className="card">
           <label className="label" htmlFor="api-key">Local demo API key (required)</label>
           <input id="api-key" className="textarea" type="password" autoComplete="off" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Enter QR_API_KEY from your backend environment" />
-          <p className="hint">Development only. Never expose a shared secret in a publicly hosted browser app.</p>
+          <p className="hint">Demo key held in this page only; not saved to browser storage. Use synthetic QR payloads, never real payment data.</p>
           <div className="tabs">
             <button
               className={`tab ${mode === "text" ? "active" : ""}`}

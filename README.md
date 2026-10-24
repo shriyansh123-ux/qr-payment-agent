@@ -67,3 +67,12 @@ This project should be presented as an engineering prototype, not as a productio
 ## Deployment
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for Windows PowerShell, Docker, and manually configured Render hosting instructions, environment variables, and security limitations.
+
+
+## Step 4 — Privacy and reliability hardening
+
+- Temporary backend sessions now expire after 30 minutes of inactivity, with at most 256 sessions per process. These are **single-process safeguards**, not durable multi-user isolation.
+- The React app no longer stores the developer API key in `sessionStorage`; it stays in component memory until page reload. API keys still pass from the browser to the backend and **are not production-grade authentication**.
+- React history no longer retains raw pasted QR strings or image filenames, and limits stored raw details to computed estimates and caution data. Clicking **Show Raw JSON** for the current result still exposes the parsed transaction in this browser session.
+- Gemini's API key is now sent in the `x-goog-api-key` HTTP header, not as a query string. Error messages no longer include raw provider response bodies.
+- These steps **do not** provide verified merchant identity, multi-user login, strong DDoS protection, or secure persistent storage. Treat hosted use as a synthetic-data educational demo.
