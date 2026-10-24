@@ -103,3 +103,13 @@ def clear_history(user_id: str = Query("demo-user"), session_id: str = Query("")
         state.history = []
         sessions.update_session(state)
     return {"ok": True, "user_id": "demo-user", "session_id": session_id}
+
+
+# Serve the production React build from the same HTTP origin when present.
+# Local Python-only development still works without building React.
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+frontend_dist = Path(__file__).resolve().parents[2] / "web" / "dist"
+if (frontend_dist / "index.html").is_file():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")

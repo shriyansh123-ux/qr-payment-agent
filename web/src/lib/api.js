@@ -1,6 +1,7 @@
 // Development-only shared key, entered by the user; not bundled at build time.
 const apiKey = () => sessionStorage.getItem("qr_demo_api_key") || "";
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+// Same-origin API in production; Vite proxies /api to FastAPI during local development.
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export async function scanText({ user_id, session_id, qr_payload, user_country }) {
   const res = await fetch(`${API_BASE}/api/scan-text`, {
