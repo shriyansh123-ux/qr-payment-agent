@@ -275,3 +275,23 @@ body {
 .accountResult { margin: 16px 0; padding: 16px; border-radius: 12px; background: rgba(35,100,230,0.15); }
 .hintText { line-height: 1.65; color: #d0dcf2; }
 .accountTable { min-width: 580px; }
+
+.scanInsights { margin-top: 24px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 22px; }
+.insightHeading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.insightHeading h3, .insightHeading h4 { margin: 0; }
+.unverifiedBadge { border: 1px solid #c69749; color: #ffdc9d; border-radius: 999px; padding: 6px 10px; font-size: .8rem; }
+.scanBreakdown { border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 18px; margin: 16px 0; background: rgba(0,0,0,.15); }
+.insightFacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px; margin: 24px 0; }
+.insightFacts dt { font-size: .82rem; color: #adbbd5; margin-bottom: 6px; }
+.insightFacts dd { margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.cautionReasons { padding-left: 20px; line-height: 1.65; color: #d0dcf2; }
+.cautionReasons li + li { margin-top: 8px; }
+.insightBoundary { border-left: 3px solid #c69749; padding: 10px 14px; color: #ffdc9d; line-height: 1.6; }
+.feeScenario { margin-top: 22px; padding: 18px; border-radius: 14px; background: rgba(40,110,255,.1); }
+.feeScenario summary { cursor: pointer; font-weight: 700; color: #bbd3ff; }
+.feeInputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.feeInputs input { display: block; margin-top: 8px; }
+.feeEstimate { display: grid; gap: 8px; padding: 20px 0 10px; }
+.feeEstimate strong { font-size: 1.7rem; color: #b2f2df; }
+.feeEstimate > span { color: #d0dcf2; }
+@media (max-width: 500px) { .scanBreakdown { padding: 14px; } .insightFacts { grid-template-columns: 1fr; } }

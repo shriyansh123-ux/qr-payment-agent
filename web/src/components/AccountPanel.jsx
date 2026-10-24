@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ScanInsights from "./ScanInsights";
 import {
   accountStatus, accountRegister, accountLogin, accountLogout,
   accountHistory, accountClearHistory, accountScanText,
@@ -189,6 +190,7 @@ export default function AccountPanel({ userCountry }) {
           : formatMoney(result.fx_result?.total_home, result.fx_result?.to_currency)}
         <p className="hint">Indicative exchange rate, not a payment quote. No merchant identity is verified.</p>
       </div>}
+      <ScanInsights result={result} />
       <div className="accountBar">
         <h3>Stored summary history</h3>
         <button type="button" className="btnSecondary" disabled={busy || !rows.length} onClick={clearHistory}>Clear saved history</button>
