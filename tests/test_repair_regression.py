@@ -28,6 +28,7 @@ def test_fx_never_uses_fake_fallback(monkeypatch):
     def broken(*args, **kwargs):
         raise FXUnavailable("offline")
     monkeypatch.setattr(agent, "_fetch_live_rate", broken)
+    monkeypatch.setattr(agent, "_fetch_ecb_rate", broken)
     with pytest.raises(FXUnavailable):
         agent.handle(100, "JPY", "INR")
 
@@ -56,3 +57,49 @@ def test_api_rejects_bad_amount(monkeypatch):
         response = client.post("/api/scan-text", headers={"X-API-Key": key},
                                json={"qr_payload": "QR:JP:JPY:-5"})
         assert response.status_code == 422
+
+
+
+def test_fresh_ecb_reference_used_if_blended_provider_is_stale(monkeypatch):
+    from decimal import Decimal
+    from datetime import date
+    agent = FXRateAgent()
+    def stale(*args):
+        raise FXUnavailable("stale blended rate")
+    monkeypatch.setattr(agent, "_fetch_live_rate", stale)
+    monkeypatch.setattr(
+        agent, "_fetch_ecb_rate",
+        lambda base, quote: (Decimal("0.60"), date.today().isoformat())
+    )
+    converted = agent.handle(1500, "JPY", "INR")
+    assert converted["total_home"] == 900.0
+    assert converted["provider"] == "frankfurter-ecb-reference"
+    assert converted["rate_date"] == date.today().isoformat()
+
+
+def test_no_fallback_rate_if_both_reference_feeds_unavailable(monkeypatch):
+    agent = FXRateAgent()
+    def fail(*args):
+        raise FXUnavailable("provider unavailable")
+    monkeypatch.setattr(agent, "_fetch_live_rate", fail)
+    monkeypatch.setattr(agent, "_fetch_ecb_rate", fail)
+    with pytest.raises(FXUnavailable):
+        agent.handle(1500, "JPY", "INR")
+
+
+def test_ecb_rate_rejects_stale_and_malformed_data(monkeypatch):
+    from datetime import date, timedelta
+    class Response:
+        def __init__(self, body):
+            self.body = body
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return self.body
+    response = Response({
+        "date": (date.today() - timedelta(days=10)).isoformat(),
+        "rates": {"INR": 0.60},
+    })
+    monkeypatch.setattr("src.agents.fx_rate_agent.requests.get", lambda *a, **k: response)
+    with pytest.raises(FXUnavailable):
+        FXRateAgent()._fetch_ecb_rate("JPY", "INR")
