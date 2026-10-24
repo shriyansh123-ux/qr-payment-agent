@@ -8,6 +8,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict
 from urllib.parse import urlsplit, parse_qs
+from src.agents.emv_parser import parse_emv_qr
 
 
 _DEMO = re.compile(r"QR:([A-Z]{2}):([A-Z]{3}):([0-9]+(?:\.[0-9]{1,2})?)", re.IGNORECASE)
@@ -51,6 +52,13 @@ class QRParserAgent:
             if currency == "JPY" and "." in amount:
                 raise ValueError("JPY example amounts must be whole units")
             return self._result(None, country, currency, amount, "demo")
+        if payload.startswith("000201"):
+            parsed = parse_emv_qr(payload)
+            if parsed["currency"] == "JPY" and "." in parsed["amount_raw"]:
+                raise ValueError("JPY amounts must be whole units")
+            result = self._result(None, parsed["country"], parsed["currency"], parsed["amount_raw"], "emv-mpm")
+            result["raw_fields"]["merchant_name_claim"] = parsed["merchant_name_claim"]
+            return result
         uri = urlsplit(payload)
         if uri.scheme.lower() == "upi" and uri.netloc.lower() == "pay":
             if uri.fragment or not uri.query or uri.path or uri.username:
@@ -68,7 +76,7 @@ class QRParserAgent:
             if currency != "INR":
                 raise ValueError("UPI URI currency must be INR")
             return self._result(payee, "IN", currency, pairs["am"][0], "upi")
-        raise ValueError("Unsupported QR format: use QR:JP:JPY:1500 or an amount-bearing UPI URI")
+        raise ValueError("Unsupported QR format: use a demo QR, amount-bearing UPI URI, or supported EMV merchant QR")
 
     @staticmethod
     def _result(merchant_id, country, currency, amount_raw, scheme):
