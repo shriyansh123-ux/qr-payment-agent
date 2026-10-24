@@ -60,8 +60,70 @@ def run():
                 assert "merchant@upi" not in page.locator(".accountTable").inner_text()
                 page.get_by_role("button", name="Sign out").click()
                 expect(page.locator("#account-email")).to_be_visible()
+                expect(page.get_by_role("status")).to_have_text("Signed out of this tab.")
+                expect(page.get_by_text("Signed in for this tab. Use synthetic QR data only.")).to_have_count(0)
+
+                def sign_in():
+                    page.locator("#account-password").fill("synthetic-example-password-1234")
+                    page.get_by_role("button", name="Sign in", exact=True).last.click()
+                    expect(page.get_by_role("button", name="Sign out")).to_be_enabled()
+
+                def expired(route):
+                    route.fulfill(status=401, json={"detail": "Invalid or expired token"})
+
+                def unavailable(route):
+                    route.fulfill(status=503, json={"detail": "Temporarily unavailable"})
+
+                # Invalid credentials stay a login error, not a session-expiry error.
+                page.locator("#account-password").fill("wrong-synthetic-password")
+                page.get_by_role("button", name="Sign in", exact=True).last.click()
+                expect(page.get_by_role("alert")).to_have_text("Invalid credentials")
+
+                # Non-authentication failures must preserve the current session.
+                sign_in()
+                page.route("**/api/account/scan-text", unavailable)
+                page.get_by_role("button", name="Translate and save summary").click()
+                expect(page.get_by_role("alert")).to_have_text("Temporarily unavailable")
+                expect(page.get_by_role("button", name="Sign out")).to_be_enabled()
+                expect(page.get_by_text("Signed in for this tab. Use synthetic QR data only.")).to_have_count(0)
+                page.unroute("**/api/account/scan-text", unavailable)
+
+                # Every protected action must clear profile, history and results on 401.
+                for endpoint, button in [("scan-text", "Translate and save summary"),
+                                         ("clear-history", "Clear saved history")]:
+                    if endpoint == "clear-history":
+                        sign_in()
+                    expect(page.locator(".accountTable tbody tr")).to_have_count(1)
+                    page.route(f"**/api/account/{endpoint}", expired)
+                    page.get_by_role("button", name=button, exact=True).click()
+                    expect(page.get_by_role("alert")).to_have_text("Your session has expired. Sign in again.")
+                    expect(page.locator("#account-email")).to_be_visible()
+                    expect(page.locator("#account-password")).to_have_value("")
+                    expect(page.get_by_role("button", name="Sign out")).to_have_count(0)
+                    expect(page.locator(".accountTable")).to_have_count(0)
+                    expect(page.locator(".accountResult")).to_have_count(0)
+                    expect(page.locator(".accountNotice")).to_have_count(0)
+                    page.unroute(f"**/api/account/{endpoint}", expired)
+
+                # A token may expire while loading history immediately after login.
+                page.route("**/api/account/history", expired)
+                page.locator("#account-password").fill("synthetic-example-password-1234")
+                page.get_by_role("button", name="Sign in", exact=True).last.click()
+                expect(page.get_by_role("alert")).to_have_text("Your session has expired. Sign in again.")
+                expect(page.get_by_role("button", name="Sign out")).to_have_count(0)
+                page.unroute("**/api/account/history", expired)
+
+                # Failed server logout still removes local credentials with an honest notice.
+                sign_in()
+                page.route("**/api/account/logout", unavailable)
+                page.get_by_role("button", name="Sign out").click()
+                expect(page.locator("#account-email")).to_be_visible()
+                expect(page.get_by_role("status")).to_have_text(
+                    "Signed out of this tab; server revocation was not confirmed.")
+                expect(page.locator(".accountTable")).to_have_count(0)
+                page.unroute("**/api/account/logout", unavailable)
                 assert page.evaluate("localStorage.length") == 0
-                print("Browser E2E passed: demo image/text, account registration/login/history/logout")
+                print("Browser E2E passed: demo, accounts, logout, expired sessions and service failures")
 
             finally:
                 browser.close()
