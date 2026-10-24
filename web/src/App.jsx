@@ -119,6 +119,7 @@ export default function App() {
       } else {
         if (!imageFile) throw new Error("Please choose a QR image file.");
         res = await scanImage({
+          apiKey: apiKeyInput,
           user_id: USER_ID,
           session_id: sessionId,
           file: imageFile,
