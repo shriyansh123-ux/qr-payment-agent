@@ -109,3 +109,16 @@ Free-plan quotas, cold starts, backup/retention arrangements, stronger identity 
 - Live verification used an existing synthetic private account. INR 100 plus 3% markup and INR 5 fixed fee showed INR 108; approval moved to pending, then the selected successful simulation explicitly reported that no money moved. The saved scan count did not increase during the simulation.
 - Health returned ok and account registration remained disabled. No backend, secret or infrastructure configuration was changed, no provider account was created, and no paid resources were provisioned. The queried post-release application-error window was empty.
 - README and scope explain how to demonstrate the flow and distinguish it from future real payment integration.
+
+
+## THB cash helper and local numeral recognition — 25 October 2026
+
+[PR #15](https://github.com/shriyansh123-ux/qr-payment-agent/pull/15) was merged as `cccd56c5f55b52d74dc862951be9bf29bfdce8fb`. Render release `dep-dberiv8m7kps73eroio0` reached live at 08:11:16 UTC.
+
+- Added a Cash helper workspace for Thai baht, the first supported cash currency. It displays everyday note/coin values with boxed Thai numeral equivalents, suggests exact payment and change combinations, and sums the quantities actually returned to identify matches, shortages and excess.
+- Denominations were checked against the Bank of Thailand Series 17 page and Thailand government currency guide; official links and the checked date appear in the interface and README. Numeral boxes are equivalents, not note reproductions or authentication. Note/coin designs can vary. Other cash currencies are not implied by the FX catalog.
+- All values use integer satang. The helper supports familiar and Thai-digit input, validates quantities and amounts, clears counted results after amount changes, rejects insufficient payment, and flags amounts not representable with listed everyday coins. No rounding rule is applied. Suggestions assume denomination availability rather than a known wallet inventory.
+- Four local Node tests passed, including 4,001 combination value-conservation cases. All six jobs passed in [CI run 40175446374](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40175446374), with added cash arithmetic and Chromium coverage for alternative combinations, exact/short/extra change, invalid quantities, Thai input, insufficient payment, state reset, unrepresentable amounts and mobile layout. Browser tests confirmed the cash workspace sends no requests and writes no browser storage.
+- Live verification: THB 117.75 paid with THB 500 gave expected change THB 382.25. A counted alternative using two 1-baht coins instead of the suggested 2-baht coin matched exactly. Removing one 25-satang coin produced a THB 0.25 shortfall; replacing it restored the match. Boxed Thai labels rendered beside familiar values.
+- The cash workspace needs no API key or account and stores nothing. No backend, secret, registration or infrastructure changes were made. Health returned ok, registration remained disabled, and the queried post-release application-error window was empty. No paid resources were created.
+- README, product scope and demo walkthrough now explain the cash feature and its THB-only scope.
