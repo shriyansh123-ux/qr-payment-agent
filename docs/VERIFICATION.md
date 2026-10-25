@@ -122,3 +122,16 @@ Free-plan quotas, cold starts, backup/retention arrangements, stronger identity 
 - Live verification: THB 117.75 paid with THB 500 gave expected change THB 382.25. A counted alternative using two 1-baht coins instead of the suggested 2-baht coin matched exactly. Removing one 25-satang coin produced a THB 0.25 shortfall; replacing it restored the match. Boxed Thai labels rendered beside familiar values.
 - The cash workspace needs no API key or account and stores nothing. No backend, secret, registration or infrastructure changes were made. Health returned ok, registration remained disabled, and the queried post-release application-error window was empty. No paid resources were created.
 - README, product scope and demo walkthrough now explain the cash feature and its THB-only scope.
+
+
+## Six-currency cash catalogs — 25 October 2026
+
+[PR #16](https://github.com/shriyansh123-ux/qr-payment-agent/pull/16) was merged as `c42cf9b98effe12833fb0ec42e12730c380d28cf`. Render release `dep-dberusnb9u1s73aomhkg` reached live at 08:36:42 UTC.
+
+- Cash helper now offers THB, USD, EUR, JPY, INR and AED from separately reviewed local denomination catalogs. Each has its own source links, precision, local labels and availability/rounding guidance. Source details and explicit exclusions are recorded in [CASH_CURRENCIES.md](CASH_CURRENCIES.md).
+- JPY accepts whole yen only. Decimal currencies use integer minor units. Supported digit input includes Thai, Devanagari, Arabic-script and full-width digits; the Arabic decimal separator is normalized. Local boxes are equivalents, not exact reproductions of every banknote series. USD/EUR use familiar value labels.
+- Equal-value notes and coins have independent counters. Marked EUR 500 and INR 2000 notes can be counted but are excluded from suggestions. Switching currency clears amounts, quantities and results; it never relabels or converts prior cash amounts. No automatic cash rounding was introduced.
+- Seven local cash tests passed. All six jobs passed in [CI run 40176870431](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40176870431), including catalog conservation, native input, whole yen, overlap/legacy handling and browser matching/short-change cases for every added currency. Browser checks retain no-request/no-storage and mobile-layout assertions.
+- Live verification: EUR 17.60 paid with EUR 20 yielded a matching EUR 2.40 count; JPY 1175.50 was rejected while JPY 1175 paid with JPY 2000 yielded JPY 825. Switching to AED cleared the inputs. Arabic-script 117.75 paid with 200 yielded AED 82.25, and its counted return matched. Arabic-script local labels rendered in the denomination boxes.
+- Health returned ok and registration remained disabled. The service was confirmed Free before deployment. No backend, secrets, registration or infrastructure configuration changed and no paid resources were added. The queried post-release application-error window was empty.
+- README, scope and presentation guide were updated; the source-backed cash catalog is independent of the FX currency list.
