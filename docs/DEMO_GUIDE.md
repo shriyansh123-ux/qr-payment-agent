@@ -60,7 +60,7 @@ Reset and demonstrate cancellation or decline if time permits. No PIN, card numb
 
 ## Optional cash demonstration
 
-Open **Cash helper** (no key required). Enter THB 117.75 and try the 500-baht note. Show the expected THB 382.25 change, familiar values and boxed Thai numeral equivalents. Count three 100-baht notes, one 50, one 20, one 10-baht coin, two 1-baht coins and one 25-satang coin to match. Remove the 25-satang coin to demonstrate a THB 0.25 shortfall. Explain that other combinations with the same total also pass, and the initial version supports THB only.
+Open **Cash helper** (no key required), select **THB**, and enter THB 117.75 and try the 500-baht note. Show the expected THB 382.25 change, familiar values and boxed Thai numeral equivalents. Count three 100-baht notes, one 50, one 20, one 10-baht coin, two 1-baht coins and one 25-satang coin to match. Remove the 25-satang coin to demonstrate a THB 0.25 shortfall. Explain that other combinations with the same total also pass, and the helper supports THB, USD, EUR, JPY, INR and AED. Optionally select EUR and show EUR 17.60 paid with EUR 20 giving EUR 2.40 change. Changing currency clears the previous amounts and quantities.
 
 ## Questions I can answer
 

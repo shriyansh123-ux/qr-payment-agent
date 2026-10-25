@@ -260,5 +260,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .cashDenomination .nativeNumeral { width: fit-content; }
 .cashSources { margin-top: 24px; color: #d0dcf2; line-height: 1.6; }
 .cashSources a { color: #bbd3ff; }
+.cashCurrencySelect { max-width: 580px; }
+.cashCurrencySelect option { background: #101c30; color: #e7eefc; }
+.cashCurrencyGuidance { padding: 12px 16px; border-left: 3px solid #c69749; color: #ffdc9d; line-height: 1.6; font-size: .9rem; }
 @media (max-width: 500px) { .cashAmounts { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .conversionBlocks { grid-template-columns: 1fr; } }
