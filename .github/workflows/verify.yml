@@ -46,6 +46,8 @@ jobs:
         run: npm ci
       - name: Build React frontend
         run: npm run build
+      - name: Test exact cash arithmetic and native numerals
+        run: node --test tests/cash.test.js
       - name: Lint React frontend
         run: npm run lint
       - name: Report npm dependency advisories

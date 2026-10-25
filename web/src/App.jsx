@@ -6,6 +6,7 @@ import ScanInsights from "./components/ScanInsights";
 import CurrencyConverter from "./components/CurrencyConverter";
 import HomeCurrency from "./components/HomeCurrency";
 import QRPhoto from "./components/QRPhoto";
+import CashHelper from "./components/CashHelper";
 
 const USER_ID = "user-123";
 
@@ -123,15 +124,16 @@ export default function App() {
       <div className="container">
         <h1 className="title">Travel QR Cost Estimator</h1>
         <p className="subtitle">
-          Read a supported payment QR, understand its currency value, and estimate how provider fees could affect the cost. No payments are made here.
+          Estimate costs from supported QRs, explore fees, and check cash payments in a supported local currency. No payments are made here.
         </p>
 
         <div className="tabs" role="group" aria-label="Workspace">
           <button type="button" className={`tab ${workspace === "demo" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("demo")}>QR demo</button>
           <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("account")}>Saved scans</button>
           <button type="button" className={`tab ${workspace === "converter" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("converter")}>Currency converter</button>
+          <button type="button" className={`tab ${workspace === "cash" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("cash")}>Cash helper</button>
         </div>
-        {workspace === "account" ? <AccountPanel />
+        {workspace === "cash" ? <CashHelper /> : workspace === "account" ? <AccountPanel />
           : workspace === "converter" ? <CurrencyConverter apiKey={apiKeyInput} onApiKeyChange={setApiKeyInput} /> : <>
         <div className="card">
           <label className="label" htmlFor="api-key">Local demo API key (required)</label>

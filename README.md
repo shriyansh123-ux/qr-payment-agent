@@ -14,8 +14,21 @@ Understand a payment QR before opening your payment app: decode its amount, insp
 - **Conversion details:** original amount, reference conversion, exchange rate, publication date and source for each QR, including multi-QR results.
 - **Fee exploration:** enter a percentage markup and fixed fee to see their illustrative impact. These assumptions stay in the page and are not saved to account history.
 - **Payment-flow simulation:** review the estimate and assumed fees, simulate approval/cancellation and choose success/decline/timeout outcomes. It runs entirely in the page; no bank, payment app or provider is contacted and no payment status is saved.
+- **Cash helper (THB first):** note/coin suggestions, boxed Thai numeral equivalents, expected change and a quantity counter for matching returned change. Runs in the page without a key.
 - **Private accounts:** sign in, scan synthetic text QR data, and retrieve or clear only your own saved summaries.
 - **Session handling:** tokens stay in React memory. Logout clears local account state; authenticated `401` responses return to sign-in and remove stale profile, history, results, and notices.
+
+## Cash payments and numeral recognition
+
+Open **Cash helper**. The first supported currency is **Thai baht (THB)**; this is independent of the FX currency catalog. Enter the bill in THB, inspect one possible exact-payment combination, and enter the amount handed over (or try the next larger listed note). The helper shows expected change and a possible denomination breakdown. Enter the quantities of notes/coins actually returned to see an exact match, shortfall or extra amount. Any combination with the correct total passes.
+
+Each denomination displays a boxed Thai numeral equivalent beside its familiar value, including the distinction between baht and satang. These are recognition aids, not banknote reproductions or guarantees about markings on every series. Both familiar and Thai digits work in amount and quantity inputs.
+
+Example: bill **THB 117.75**, paid **THB 500**, expected change **THB 382.25**. Three 100-baht notes, one 50-baht note, one 20-baht note, one 10-baht coin, two 1-baht coins and one 25-satang coin match. Alternative combinations are equally valid.
+
+Values use integer satang, never FX conversion or silent rounding. Everyday suggestions use 25/50-satang coins, 1/2/5/10-baht coins and 20/50/100/500/1,000-baht notes. Amounts that cannot be made with this list are explicitly flagged; agree any adjusted cash bill with the merchant. Suggestions assume denomination availability, not a known wallet inventory. No login/key is required, no cash details are sent to the server, and nothing is saved.
+
+Denominations checked 25 October 2026 against the [Bank of Thailand](https://www.bot.or.th/en/our-roles/banknotes/History-and-Series-of-Banknote-And-Commemorative/banknotes-series/banknote-series17.html) and [Thailand government currency guide](https://thailand.go.th/page/thai-currency). More currencies require separately verified denomination data.
 
 ## Hosted deployment
 
