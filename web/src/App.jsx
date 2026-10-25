@@ -3,6 +3,7 @@ import "./App.css";
 import { scanImage, scanText, clearHistory } from "./lib/api";
 import AccountPanel from "./components/AccountPanel";
 import ScanInsights from "./components/ScanInsights";
+import CurrencyConverter from "./components/CurrencyConverter";
 
 const USER_ID = "user-123";
 
@@ -166,8 +167,10 @@ export default function App() {
         <div className="tabs" role="group" aria-label="Workspace">
           <button type="button" className={`tab ${workspace === "demo" ? "active" : ""}`} onClick={() => setWorkspace("demo")}>QR demo</button>
           <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} onClick={() => setWorkspace("account")}>Accounts</button>
+          <button type="button" className={`tab ${workspace === "converter" ? "active" : ""}`} onClick={() => setWorkspace("converter")}>Currency converter</button>
         </div>
-        {workspace === "account" ? <AccountPanel userCountry={userCountry} /> : <>
+        {workspace === "account" ? <AccountPanel userCountry={userCountry} />
+          : workspace === "converter" ? <CurrencyConverter apiKey={apiKeyInput} onApiKeyChange={setApiKeyInput} /> : <>
         <div className="card">
           <label className="label" htmlFor="api-key">Local demo API key (required)</label>
           <input id="api-key" className="textarea" type="password" autoComplete="off" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Enter QR_API_KEY from your backend environment" />
