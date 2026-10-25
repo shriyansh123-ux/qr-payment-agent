@@ -1,4 +1,4 @@
-# Step 3: Running and deploying QR Payment Agent
+# Running and deploying QR Payment Agent
 
 This repository is an **educational reference-rate QR interpreter**, not a payment processor, bank integration, or fraud-verification product. Use only synthetic/demo payloads until stronger identity, storage and security controls are implemented.
 
@@ -62,17 +62,39 @@ The root `render.yaml` is a Render Blueprint for **one Docker web service**, wit
 3. Choose the `main` branch once the deployment pull request has been reviewed and merged.
 4. Set **QR_API_KEY** in Render's environment settings to a new, independent randomly generated value. Do not place the value in GitHub, the Vite bundle, or `render.yaml`.
 5. Use the `/api/health` check to confirm the backend starts, then load the Render service URL and perform a demo QR scan using the key you configured.
-6. If a free-tier instance is not available to your account, choose a plan deliberately and inspect cost details before creating resources.
+6. Confirm that the instance is Free before creating it. If unavailable, stop rather than provisioning a paid alternative.
 
 No Render resources are created by merging this repository change. The Blueprint must be activated in a connected Render account. Automatic deployments are disabled in the provided Blueprint. Hosting requires provider account actions that are separate from GitHub permissions.
 
-**Important security restriction:** A Render *web service* has a public `onrender.com` endpoint. This prototype does not have production identity-based authentication or meaningful multi-user data isolation. A shared key entered through a browser is **development access control, not public user authentication**. Do not use personal/real QR financial information or circulate the API key. For a wider external demo, add an authenticated access gateway **that blocks direct access to the origin**, or replace the development key with real login/session authorization before making it broadly accessible. If you cannot protect access, keep the demo on localhost.
+**Access boundary:** A Render web service has a public `onrender.com` endpoint. The QR demo uses a shared developer key; it is not individual user authentication. The separate account workspace uses expiring bearer tokens and user-scoped PostgreSQL summaries, with live isolation checks described in [the verification report](docs/VERIFICATION.md). It still lacks email verification, password recovery, MFA and mature session/device controls. Keep hosted registration disabled, do not circulate the developer key, and use synthetic data only. Broad public use requires a separate security review and stronger identity controls.
+
+## Connecting Neon PostgreSQL to the existing Render service
+
+The existing deployment was verified on 24 October 2026 with Render Free service `qr-payment-agent-demo` and Neon Free project `qr-payment-agent-db` in AWS Ohio. Reuse those resources; these steps are not instructions to create duplicates. No paid resources were provisioned during that setup.
+
+1. Sign in to the authorized Neon account. Confirm the project is on Free. For a separate installation, choose Free explicitly and inspect the current limits before creating anything; do not add paid resources.
+2. In the project's connection dialog, select the intended branch, database and role. Obtain the PostgreSQL URL privately with TLS enabled. Do not paste it in chat, commit it, or include it in screenshots.
+3. Open the existing Render service's Environment settings. Set only `QR_DATABASE_URL` and `QR_ALLOW_REGISTRATION=false`. Preserve `QR_API_KEY`, `PORT` and unrelated variables. Merge key updates rather than replacing the whole variable collection.
+4. Save and deploy the settings. Confirm the resulting deployment reaches **live**; saving configuration alone does not make it active.
+5. Confirm `/api/health` returns `ok` and `/api/account/status` reports `enabled=true` and `registration_enabled=false`.
+6. Verify actual PostgreSQL access. The status endpoint checks only whether a URL is configured. A synthetic login for a nonexistent user should return `401 Invalid credentials` after table initialization and a database query, rather than a database error. Cross-check the expected tables through Neon's SQL editor. Do not log credentials or connection strings while diagnosing failures.
+7. With an authorized private synthetic account, verify a text scan saves a summary and that it returns after sign-out, page reload and sign-in. Keep registration disabled throughout hosted testing.
+
+The app uses `qr_users`, `qr_tokens` and `qr_scan_summaries`; tables are initialized by account login/registration. Never use a SQLite file on Render's ephemeral filesystem for durable accounts. No Render PostgreSQL or Redis resource is required by this architecture.
+
+For local account creation only, configure an isolated SQLite database and explicitly enable registration in that local process. Hosted private account provisioning is an operator action; there is no public signup or administrative account-management UI.
+
+The repository Blueprint omits the Neon secret. Keep it in the existing service's secret configuration. Do not add a literal connection string to `render.yaml`, `.env` examples, frontend build variables, or documentation.
+
+Free services may sleep or reach quotas. Review provider limits, retention and backup arrangements in their dashboards; the project does not promise permanent free availability or recovery guarantees.
 
 ## Technical defaults
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
 | `QR_API_KEY` | Required development API secret | Not configured; must set |
+| `QR_DATABASE_URL` | Optional account database; use a TLS PostgreSQL URL on hosted deployments | Not configured by the repository; existing service configured privately |
+| `QR_ALLOW_REGISTRATION` | Controls account creation | `false`; keep disabled on hosted service |
 | `GEMINI_API_KEY` | Optional LLM explanation API | Not configured; deterministic fallback |
 | `PORT` | Uvicorn HTTP listening port in Docker | 8000; Render config sets 10000 |
 | `QR_CORS_ORIGINS` | Explicit cross-origin requests, if you add a separate frontend | Localhost dev origins |
@@ -80,4 +102,4 @@ No Render resources are created by merging this repository change. The Blueprint
 
 ## Verification
 
-CI runs Python tests, the live FX reference API check, React build/lint/npm audit, Docker container HTTP checks, and a real Chromium browser scan workflow against the combined app. The supported scope is **not** a globally interoperable payment QR system. Results are indicative reference conversions, provider fees are unquoted, and merchant identifiers are unverified.
+CI runs Python tests, live FX checks, React build/lint/npm audit, Docker HTTP checks, bounded localhost load checks, and Chromium browser regressions. Coverage includes account/session behavior, per-QR explanation details and the user-entered fee calculator. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for completed live checks and their limits. Results remain reference conversions, actual provider fees are unquoted, and merchant identifiers are unverified.
