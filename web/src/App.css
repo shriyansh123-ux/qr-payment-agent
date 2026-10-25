@@ -52,6 +52,7 @@ body {
   display: flex;
   gap: 10px;
   margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .tab {
@@ -295,3 +296,13 @@ body {
 .feeEstimate strong { font-size: 1.7rem; color: #b2f2df; }
 .feeEstimate > span { color: #d0dcf2; }
 @media (max-width: 500px) { .scanBreakdown { padding: 14px; } .insightFacts { grid-template-columns: 1fr; } }
+
+.conversionBlocks { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0; }
+.conversionBlock { min-width: 0; border: 1px solid rgba(255,255,255,.14); background: rgba(40,110,255,.08); border-radius: 16px; padding: 22px; }
+.conversionBlock h3 { margin-top: 0; color: #b5ceff; }
+.conversionBlock .label { margin-top: 20px; }
+.conversionBlock select { min-width: 0; text-overflow: ellipsis; }
+.conversionBlock option { background: #101c30; color: #e7eefc; }
+.convertedAmount { display: block; font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 750; color: #b2f2df; overflow-wrap: anywhere; }
+.conversionDetails { margin: 22px 0; padding: 18px; border-radius: 14px; background: rgba(30,130,120,.15); line-height: 1.6; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .conversionBlocks { grid-template-columns: 1fr; } }

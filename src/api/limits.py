@@ -10,7 +10,7 @@ from collections import defaultdict, deque
 
 from fastapi.responses import JSONResponse
 
-_WINDOWS = {"/api/account/login": 6, "/api/account/register": 4}
+_WINDOWS = {"/api/account/login": 6, "/api/account/register": 4, "/api/convert": 30}
 _lock = threading.Lock()
 _buckets = defaultdict(deque)
 
