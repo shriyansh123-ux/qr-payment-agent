@@ -39,6 +39,10 @@ def auth(x_api_key: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
+from src.api.currency_converter import converter_router
+app.include_router(converter_router(auth))
+
+
 class ScanTextRequest(BaseModel):
     user_id: str = Field(default="demo-user", max_length=80)
     session_id: str = Field(default="", max_length=100)
