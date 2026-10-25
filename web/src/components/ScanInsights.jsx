@@ -51,20 +51,16 @@ export default function ScanInsights({ result }) {
 
   return <section className="scanInsights" aria-labelledby={`${id}-title`}>
     <div className="insightHeading">
-      <h3 id={`${id}-title`}>Understand this QR</h3>
-      <span className="unverifiedBadge">Recipient unverified</span>
+      <h3 id={`${id}-title`}>Conversion details</h3>
     </div>
-    <p className="hintText">See how the estimate was calculated and what needs your attention.</p>
+    <p className="hintText">Original amount, exchange rate and source for each QR.</p>
     {scans.map((item, index) => {
       const fx = item.fx_result;
       const qr = item.qr_info || {};
-      const caution = item.risk_result || {};
       const scheme = qr.raw_fields?.scheme || "Payment QR";
-      const reasons = Array.isArray(caution.reasons) ? caution.reasons : [];
       return <article className="scanBreakdown" key={index} aria-label={`QR ${index + 1} breakdown`}>
         <div className="insightHeading">
           <h4>{scans.length > 1 ? `QR ${index + 1} · ` : ""}{scheme}</h4>
-          <span className={`pill ${caution.risk_level || "unknown"}`}>Caution: {(caution.risk_level || "not assessed").replaceAll("_", " ")}</span>
         </div>
         <dl className="insightFacts">
           <div><dt>Original amount</dt><dd>{money(qr.amount, fx.from_currency)}</dd></div>
@@ -76,12 +72,9 @@ export default function ScanInsights({ result }) {
           <div><dt>Rate source</dt><dd>{fx.provider === "same-currency" ? "Same currency · no FX conversion" : fx.provider || "Unavailable"}</dd></div>
           <div><dt>Provider fees</dt><dd>Not quoted</dd></div>
         </dl>
-        <h4>Why this caution level?</h4>
-        {reasons.length ? <ul className="cautionReasons">{reasons.map((reason, reasonIndex) => <li key={reasonIndex}>{reason}</li>)}</ul>
-          : <p className="hintText">No detailed assessment is available. Confirm the recipient independently.</p>}
       </article>;
     })}
-    <p className="insightBoundary">A readable QR and a low caution level do not verify a merchant or guarantee safety. Confirm the recipient and final amount in your payment app.</p>
+    <p className="hint">Estimates exclude actual provider charges. Confirm the final amount in your payment app; this app does not make payments.</p>
     {canEstimate && <FeeScenario amount={total} currency={currency} />}
   </section>;
 }

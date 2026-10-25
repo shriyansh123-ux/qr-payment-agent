@@ -12,7 +12,6 @@ def test_accounts_require_configuration(monkeypatch):
 def test_account_auth_history_isolation_and_logout(tmp_path, monkeypatch):
     monkeypatch.setenv("QR_DATABASE_URL", "sqlite:///" + str(tmp_path / "accounts.sqlite"))
     monkeypatch.setenv("QR_ALLOW_REGISTRATION", "true")
-    monkeypatch.setattr("src.orchestration.orchestrator_agent.call_gemini", lambda prompt: "Synthetic test.")
     with TestClient(app) as client:
         def register(email):
             return client.post("/api/account/register", json={"email":email,"password":"long-synthetic-test-password-123"})

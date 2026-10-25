@@ -93,10 +93,6 @@ class FXRateAgent:
         _RATE_CACHE[key] = (rate, observed, provider, time.monotonic() + self.cache_ttl_seconds)
         return rate, observed, provider
 
-    def usd_equivalent(self, amount_local, local_currency):
-        rate, _, _ = self.get_rate(local_currency, "USD")
-        return _amount(amount_local) * rate
-
     def handle(self, amount_local, local_currency, home_currency):
         amount = _amount(amount_local)
         base = (local_currency or "").strip().upper()

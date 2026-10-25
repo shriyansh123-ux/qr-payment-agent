@@ -21,7 +21,7 @@ def run_eval():
 
     # Define a user profile for evaluation purposes
     user_id = "eval-user"
-    memory.upsert_profile(user_id, {"home_currency": "INR", "risk_preference": "balanced"})
+    memory.upsert_profile(user_id, {"home_currency": "INR"})
 
     # Orchestrator agent controls all sub-agents
     orchestrator = OrchestratorAgent(sessions, memory)

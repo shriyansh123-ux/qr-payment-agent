@@ -17,13 +17,13 @@ def test_authenticated_scan(monkeypatch):
         assert unauthorized.status_code == 401
         result = client.post("/api/scan-text", headers={"X-API-Key": key},
                              json={"qr_payload": "upi://pay?pa=demo@upi&am=100&cu=INR"})
-        # Risk normalization may require live USD FX, but this is optional.
         assert result.status_code == 200
         data = result.json()
         assert data["success"]
         assert data["qr_info"]["merchant_id"] == "demo@upi"
         assert data["fx_result"]["total_home"] == 100
         assert data["fx_result"]["fee_status"] == "not_quoted"
+        assert "risk_result" not in data
 
 
 def test_history_contract(monkeypatch):
