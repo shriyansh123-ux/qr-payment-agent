@@ -290,6 +290,56 @@ def run():
                 page.set_viewport_size({"width": 390, "height": 844})
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 assert page.evaluate("localStorage.length") == 0
+                # Cash arithmetic and numeral recognition need neither auth nor network.
+                cash_requests = []
+                def record_cash_request(request):
+                    cash_requests.append(request.url)
+                page.on("request", record_cash_request)
+                page.get_by_role("button", name="Cash helper", exact=True).click()
+                cash = page.get_by_role("region", name="Cash helper", exact=True)
+                expect(cash).to_contain_text("Thailand · Thai baht (THB)")
+                expect(cash.locator(".cashDenomination")).to_have_count(11)
+                expect(cash.locator(".cashDenominations").get_by_text("๑๐๐ บาท", exact=True)).to_be_visible()
+                expect(cash.locator(".cashDenominations").get_by_text("๒๕ สตางค์", exact=True)).to_be_visible()
+                cash.get_by_label("Bill amount (THB)", exact=True).fill("117.75")
+                cash.get_by_role("button", name="Try paying with a 500 baht note", exact=True).click()
+                expect(cash.locator(".cashExpected")).to_have_text("Expected change: THB 382.25")
+                for denomination, quantity in [("100 baht note", "3"), ("50 baht note", "1"),
+                    ("20 baht note", "1"), ("10 baht coin", "1"), ("1 baht coin", "2"),
+                    ("25 satang coin (THB 0.25)", "1")]:
+                    cash.get_by_label(f"Quantity received: {denomination}", exact=True).fill(quantity)
+                expect(cash.locator(".cashCheck")).to_contain_text("Change matches exactly.")
+                cash.get_by_label("Quantity received: 25 satang coin (THB 0.25)", exact=True).fill("0")
+                expect(cash.locator(".cashCheck")).to_contain_text("Change is short by THB 0.25.")
+                cash.get_by_label("Quantity received: 25 satang coin (THB 0.25)", exact=True).fill("2")
+                expect(cash.locator(".cashCheck")).to_contain_text("Change is extra by THB 0.25.")
+                cash.get_by_label("Quantity received: 1 baht coin", exact=True).fill("1.5")
+                expect(cash.locator(".cashCheck")).to_contain_text("Fix invalid quantities")
+                expect(cash.locator(".cashCheck")).not_to_contain_text("Change matches")
+                cash.get_by_role("button", name="Clear counted change", exact=True).click()
+                expect(cash.locator(".cashCheck")).to_have_count(0)
+                cash.get_by_label("Amount handed over (THB)", exact=True).fill("100")
+                expect(cash.get_by_role("alert")).to_have_text("Payment is short by THB 17.75. No change is due yet.")
+                expect(cash.locator(".cashExpected")).to_have_count(0)
+                expect(cash.get_by_label("Quantity received: 100 baht note", exact=True)).to_be_disabled()
+                cash.get_by_label("Bill amount (THB)", exact=True).fill("๑๑๗.๗๕")
+                cash.get_by_label("Amount handed over (THB)", exact=True).fill("๑๑๗.๗๕")
+                expect(cash.locator(".cashExpected")).to_have_text("Expected change: THB 0.00")
+                cash.get_by_label("Quantity received: 1 baht coin", exact=True).fill("0")
+                expect(cash.locator(".cashCheck")).to_contain_text("Change matches exactly.")
+                cash.get_by_label("Bill amount (THB)", exact=True).fill("117.60")
+                cash.get_by_label("Amount handed over (THB)", exact=True).fill("500")
+                expect(cash.get_by_role("region", name="Suggested exact payment", exact=True)).to_contain_text("No exact combination")
+                expect(cash.locator(".cashExpected")).to_contain_text("THB 382.40")
+                expect(cash.get_by_role("region", name="Suggested change", exact=True)).to_contain_text("No rounding has been applied")
+                cash.get_by_label("Bill amount (THB)", exact=True).fill("-1")
+                expect(cash.locator(".cashExpected")).to_have_count(0)
+                expect(cash.locator(".cashCheck")).to_have_count(0)
+                expect(cash.get_by_role("alert")).to_contain_text("Enter a bill greater than zero")
+                assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+                assert page.evaluate("localStorage.length + sessionStorage.length") == 0
+                assert cash_requests == [], cash_requests
+                page.remove_listener("request", record_cash_request)
                 print("Browser E2E passed: demo, accounts, logout, expired sessions and service failures")
 
             finally:

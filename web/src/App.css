@@ -246,4 +246,19 @@ body {
 .simulationSteps [aria-current="step"] { color: #ffdc9d; font-weight: 750; }
 .simulationStatus { padding: 16px; border-radius: 10px; background: rgba(40,110,255,.15); font-weight: 700; }
 button:disabled { cursor: not-allowed; opacity: .6; }
+.cashAmounts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 24px; }
+.cashAmounts input { display: block; margin-top: 10px; }
+.cashSuggestion { padding: 16px; margin: 18px 0; border-radius: 12px; background: rgba(40,110,255,.08); }
+.cashSuggestion h3 { margin-top: 0; }
+.cashSuggestion ul { list-style: none; padding: 0; }
+.cashSuggestion li { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.nativeNumeral { display: inline-block; padding: 7px 12px; border: 1px solid #71819f; border-radius: 8px; color: #ffdc9d; font-size: 1.15rem; }
+.cashExpected, .cashCheck { padding: 18px; border-radius: 12px; background: rgba(30,130,120,.15); }
+.cashDenominations { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 16px; }
+.cashDenomination { display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; }
+.cashDenomination label { font-size: .85rem; color: #adbbd5; }
+.cashDenomination .nativeNumeral { width: fit-content; }
+.cashSources { margin-top: 24px; color: #d0dcf2; line-height: 1.6; }
+.cashSources a { color: #bbd3ff; }
+@media (max-width: 500px) { .cashAmounts { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .conversionBlocks { grid-template-columns: 1fr; } }

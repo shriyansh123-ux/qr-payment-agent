@@ -58,6 +58,10 @@ Reset and demonstrate cancellation or decline if time permits. No PIN, card numb
 
 “The project demonstrates cost visibility and a proposed interaction. Real deductions would require an approved payment-provider integration and confirmed merchant, bank and app support.”
 
+## Optional cash demonstration
+
+Open **Cash helper** (no key required). Enter THB 117.75 and try the 500-baht note. Show the expected THB 382.25 change, familiar values and boxed Thai numeral equivalents. Count three 100-baht notes, one 50, one 20, one 10-baht coin, two 1-baht coins and one 25-satang coin to match. Remove the 25-satang coin to demonstrate a THB 0.25 shortfall. Explain that other combinations with the same total also pass, and the initial version supports THB only.
+
 ## Questions I can answer
 
 **Why not just use a currency converter?**  
