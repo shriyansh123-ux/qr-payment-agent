@@ -48,6 +48,7 @@ class ScanTextRequest(BaseModel):
     session_id: str = Field(default="", max_length=100)
     qr_payload: str = Field(min_length=1, max_length=8192)
     user_country: Optional[str] = Field(default=None, max_length=2)
+    home_currency: Optional[str] = Field(default=None, pattern=r"^[A-Z]{3}$")
 
 
 def _run(fn, *args, **kwargs):
@@ -67,13 +68,14 @@ def health():
 @app.post("/api/scan-text", dependencies=[Depends(auth)])
 def scan_text(req: ScanTextRequest):
     result = _run(orchestrator.handle_qr_scan, "demo-user", req.session_id,
-                  req.qr_payload, req.user_country)
+                  req.qr_payload, req.user_country, req.home_currency)
     return {"success": True, **result}
 
 
 @app.post("/api/scan-image", dependencies=[Depends(auth)])
 async def scan_image(file: UploadFile = File(...), user_id: str = Query("demo-user"),
-                     session_id: str = Query(""), user_country: Optional[str] = Query(None)):
+                     session_id: str = Query(""), user_country: Optional[str] = Query(None),
+                     home_currency: Optional[str] = Query(None, pattern=r"^[A-Z]{3}$")):
     if file.content_type not in ("image/png", "image/jpeg", "image/webp"):
         raise HTTPException(415, detail="Only PNG, JPEG, and WebP images are supported")
     content = await file.read(MAX_UPLOAD_BYTES + 1)
@@ -92,7 +94,7 @@ async def scan_image(file: UploadFile = File(...), user_id: str = Query("demo-us
         tmp.write(content)
     try:
         return {"success": True, **_run(orchestrator.handle_qr_image_scan,
-                "demo-user", session_id, path, user_country)}
+                "demo-user", session_id, path, user_country, home_currency)}
     finally:
         os.unlink(path)
 

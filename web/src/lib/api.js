@@ -3,7 +3,7 @@
 // Same-origin API in production; Vite proxies /api to FastAPI during local development.
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
-export async function scanText({ apiKey, user_id, session_id, qr_payload, user_country }) {
+export async function scanText({ apiKey, user_id, session_id, qr_payload, user_country, home_currency }) {
   const res = await fetch(`${API_BASE}/api/scan-text`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
@@ -11,6 +11,7 @@ export async function scanText({ apiKey, user_id, session_id, qr_payload, user_c
       user_id,
       session_id,
       qr_payload,
+      home_currency: home_currency || null,
       user_country: /^[A-Z]{2}$/.test(user_country || "") ? user_country : null,
     }),
   });
@@ -22,14 +23,15 @@ export async function scanText({ apiKey, user_id, session_id, qr_payload, user_c
   return res.json();
 }
 
-export async function scanImage({ apiKey, user_id, session_id, file, user_country }) {
+export async function scanImage({ apiKey, user_id, session_id, file, user_country, home_currency }) {
   const fd = new FormData();
   fd.append("file", file);
 
   const url =
     `${API_BASE}/api/scan-image?user_id=${encodeURIComponent(user_id)}` +
     `&session_id=${encodeURIComponent(session_id || "")}` +
-    `&user_country=${encodeURIComponent(/^[A-Z]{2}$/.test(user_country || "") ? user_country : "")}`;
+    `&user_country=${encodeURIComponent(/^[A-Z]{2}$/.test(user_country || "") ? user_country : "")}` +
+    (home_currency ? `&home_currency=${encodeURIComponent(home_currency)}` : "");
 
   const res = await fetch(url, { method: "POST", headers: { "X-API-Key": apiKey }, body: fd });
 
@@ -106,8 +108,8 @@ export const accountMe = (token) => accountRequest("/me", { token });
 export const accountHistory = (token) => accountRequest("/history", { token });
 export const accountClearHistory = (token) =>
   accountRequest("/clear-history", { method: "POST", token });
-export const accountScanText = (token, qr_payload, user_country) =>
+export const accountScanText = (token, qr_payload, user_country, home_currency) =>
   accountRequest("/scan-text", {
     method: "POST", token,
-    body: { qr_payload, user_country: /^[A-Z]{2}$/.test(user_country || "") ? user_country : null },
+    body: { qr_payload, home_currency: home_currency || null, user_country: /^[A-Z]{2}$/.test(user_country || "") ? user_country : null },
   });

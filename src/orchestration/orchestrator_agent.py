@@ -25,7 +25,7 @@ class OrchestratorAgent:
         return existing if existing is not None else self.sessions.create_session()
 
     def handle_qr_scan(self, user_id: str, session_id: str, qr_payload: str,
-                       user_country: Optional[str] = None):
+                       user_country: Optional[str] = None, home_currency: Optional[str] = None):
         # user_country is accepted only for compatibility; it is not used as location evidence.
         payload = (qr_payload or "").strip()
         if not payload:
@@ -37,7 +37,11 @@ class OrchestratorAgent:
         items = parsed.get("items", []) if multiple else [parsed]
         if not items:
             raise ValueError("No valid QR items found.")
-        home = (self.memory.get_profile(user_id) or {}).get("home_currency", HOME_CURRENCY)
+        home = home_currency or (self.memory.get_profile(user_id) or {}).get("home_currency", HOME_CURRENCY)
+        if home_currency is not None:
+            from src.api.currency_converter import supported_currencies
+            if home_currency not in {entry["code"] for entry in supported_currencies()}:
+                raise ValueError("Choose a home currency from the supported list.")
         results = [{"qr_info": item, "fx_result": self.fx_agent.handle(
             amount_local=item["amount"], local_currency=item["currency"], home_currency=home
         )} for item in items]
@@ -52,15 +56,15 @@ class OrchestratorAgent:
         self.sessions.update_session(state)
         if multiple:
             return {"session_id": state.session_id, "multiple": True, "count": len(results),
-                    "items": results, "total_home": float(total), "message": message}
+                    "items": results, "total_home": float(total), "home_currency": home, "message": message}
         return {"session_id": state.session_id, **results[0], "message": message}
 
     def handle_qr_image_scan(self, user_id: str, session_id: str, image_path: str,
-                            user_country: Optional[str] = None):
+                            user_country: Optional[str] = None, home_currency: Optional[str] = None):
         payload = self.qr_image_agent.handle(image_path)
         if isinstance(payload, (list, tuple)):
             payload = ",".join(str(item).strip() for item in payload if str(item).strip())
         payload = str(payload or "").strip()
         if payload.startswith("[") and payload.endswith("]"):
             payload = payload[1:-1].strip().strip("'").strip('"')
-        return self.handle_qr_scan(user_id, session_id, payload, user_country)
+        return self.handle_qr_scan(user_id, session_id, payload, user_country, home_currency)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ScanInsights from "./ScanInsights";
+import HomeCurrency from "./HomeCurrency";
 import {
   accountStatus, accountRegister, accountLogin, accountLogout,
   accountHistory, accountClearHistory, accountScanText,
@@ -22,6 +23,7 @@ export default function AccountPanel() {
   const [token, setToken] = useState("");
   const [profile, setProfile] = useState("");
   const [qrText, setQrText] = useState(SAMPLE);
+  const [homeCurrency, setHomeCurrency] = useState("");
   const [rows, setRows] = useState([]);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -97,7 +99,7 @@ export default function AccountPanel() {
     setError("");
     setResult(null);
     try {
-      const response = await accountScanText(token, qrText.trim());
+      const response = await accountScanText(token, qrText.trim(), null, homeCurrency);
       setResult(response);
       await refreshHistory(token);
     } catch (problem) {
@@ -179,14 +181,17 @@ export default function AccountPanel() {
         <button className="btnSecondary" type="button" disabled={busy} onClick={signOut}>Sign out</button>
       </div>
       <div className="form">
+        <HomeCurrency value={homeCurrency} disabled={busy} onChange={value => {
+          setHomeCurrency(value); setResult(null); setError("");
+        }} />
         <label className="label" htmlFor="account-qr">Synthetic QR text</label>
-        <textarea className="textarea" id="account-qr" rows={3} value={qrText} onChange={e => setQrText(e.target.value)} />
+        <textarea className="textarea" id="account-qr" rows={3} disabled={busy} value={qrText} onChange={e => { setQrText(e.target.value); setResult(null); }} />
         <p className="hint">Text scans currently supported in account mode. The demo workspace also supports images.</p>
-        <button className="btnPrimary" type="button" disabled={busy} onClick={scan}>Translate and save summary</button>
+        <button className="btnPrimary" type="button" disabled={busy} onClick={scan}>Estimate and save summary</button>
       </div>
       {result && <div className="accountResult" role="status">
         <strong>Reference estimate:</strong> {result.multiple
-          ? formatMoney(result.total_home, "INR")
+          ? formatMoney(result.total_home, result.home_currency)
           : formatMoney(result.fx_result?.total_home, result.fx_result?.to_currency)}
         <p className="hint">Reference conversion before provider fees.</p>
       </div>}

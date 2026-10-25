@@ -205,6 +205,7 @@ def clear_history(authorization: str = Header(default="")):
 class AccountScan(BaseModel):
     qr_payload: str = Field(min_length=1, max_length=8192)
     user_country: str | None = Field(default=None, max_length=2)
+    home_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
 
 
 @router.post("/scan-text")
@@ -215,7 +216,7 @@ def scan_text(req: AccountScan, authorization: str = Header(default="")):
     try:
         # Don't accept client-supplied session IDs. The demo's in-memory conversational
         # state is never reused as account identity or as account history.
-        result = orchestrator.handle_qr_scan(uid, "", req.qr_payload, req.user_country)
+        result = orchestrator.handle_qr_scan(uid, "", req.qr_payload, req.user_country, req.home_currency)
     except FXUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
     except ValueError as exc:

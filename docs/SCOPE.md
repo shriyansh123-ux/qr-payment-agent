@@ -6,7 +6,8 @@ The original traveller problem is understanding a foreign merchant's amount in a
 
 | Function | Why it belongs |
 | --- | --- |
-| Read supported text/image QRs | Extracts the amount and currency without manual retyping |
+| Read supported text/image QRs and phone photos | Extracts the amount and currency without manual retyping |
+| Select home currency for QR estimates | Keeps the merchant’s encoded amount fixed while expressing the estimate in a familiar currency |
 | From/To currency converter | Lets a traveller estimate values between supported currencies without needing a QR |
 | Original amount, rate, date and source | Makes the calculation understandable and its age visible |
 | User-entered fee scenario | Illustrates known markup/fixed-fee assumptions without inventing bank charges |
