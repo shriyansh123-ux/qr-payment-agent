@@ -13,6 +13,7 @@ Understand a payment QR before opening your payment app: decode its amount, insp
 - **Manual currency converter:** separate From and To blocks, an amount input, provider-supported currency dropdowns and a swap button. Choose any listed pair; a fresh reference rate must still be available.
 - **Conversion details:** original amount, reference conversion, exchange rate, publication date and source for each QR, including multi-QR results.
 - **Fee exploration:** enter a percentage markup and fixed fee to see their illustrative impact. These assumptions stay in the page and are not saved to account history.
+- **Payment-flow simulation:** review the estimate and assumed fees, simulate approval/cancellation and choose success/decline/timeout outcomes. It runs entirely in the page; no bank, payment app or provider is contacted and no payment status is saved.
 - **Private accounts:** sign in, scan synthetic text QR data, and retrieve or clear only your own saved summaries.
 - **Session handling:** tokens stay in React memory. Logout clears local account state; authenticated `401` responses return to sign-in and remove stale profile, history, results, and notices.
 
@@ -73,6 +74,12 @@ The dropdown catalog is fetched from Frankfurter, cached for one hour and filter
 5. The illustrated total is **INR 108**, including **INR 8** added cost.
 
 Formula: `reference amount × (1 + markup / 100) + fixed fee`. For multiple QRs converted to the same currency, the percentage applies to the combined reference amount and the fixed fee is added **once**. This is not a per-transaction bank quote. Provider rounding, settlement rates and taxes may differ. Actual fees remain **not quoted**.
+
+## Demonstrate the proposed payment flow
+
+After scanning, optionally enter fees under **Explore provider fees**, then select **Start payment simulation**. Review the simulation total, choose **Demo outcome**, select **Approve simulation**, then **Show simulated result**. You can cancel during review or pending, or reset after a terminal state. Every stage is labelled simulation; it needs no PIN, bank information, provider account or business onboarding. Changing scan inputs, home currency or fees clears the old simulation. Multiple QR amounts are combined with the fixed fee added once.
+
+The simulation is a UI prototype, not a provider sandbox or evidence of UPI/Apple Pay compatibility. No real payment requests, confirmations or receipts are produced. The [provider feasibility assessment](docs/PAYMENT_FEASIBILITY.md) is future commercial-integration research, not a requirement for presenting this educational project.
 
 ## Local setup
 

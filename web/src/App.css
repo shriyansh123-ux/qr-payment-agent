@@ -239,5 +239,11 @@ body {
 .conversionDetails { margin: 22px 0; padding: 18px; border-radius: 14px; background: rgba(30,130,120,.15); line-height: 1.6; overflow-wrap: anywhere; }
 .homeCurrency { margin: 24px 0; max-width: 580px; }
 .homeCurrency option { background: #101c30; color: #e7eefc; }
+.paymentSimulation { margin-top: 24px; padding: 22px; border: 1px dashed #c69749; border-radius: 16px; background: rgba(198,151,73,.07); }
+.simulationBadge { display: inline-block; color: #ffdc9d; font-size: .78rem; font-weight: 800; letter-spacing: .04em; }
+.paymentSimulation h3 { margin-bottom: 8px; }
+.simulationSteps { display: flex; gap: 16px; flex-wrap: wrap; list-style: none; padding: 0; color: #adbbd5; }
+.simulationSteps [aria-current="step"] { color: #ffdc9d; font-weight: 750; }
+.simulationStatus { padding: 16px; border-radius: 10px; background: rgba(40,110,255,.15); font-weight: 700; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 @media (max-width: 640px) { .conversionBlocks { grid-template-columns: 1fr; } }

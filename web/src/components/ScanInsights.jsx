@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import PaymentSimulation from "./PaymentSimulation";
 
 function money(value, currency) {
   const amount = Number(value);
@@ -16,7 +17,7 @@ function FeeScenario({ amount, currency }) {
     Number.isFinite(markup) && markup >= 0 && markup <= 100 &&
     Number.isFinite(fee) && fee >= 0 && fee <= 1000000;
   const extra = amount * markup / 100 + fee;
-  return <details className="feeScenario">
+  return <><details className="feeScenario">
     <summary>Explore provider fees</summary>
     <p className="hintText">Enter your provider’s markup and fixed fee. These are your assumptions; the QR does not quote them.</p>
     <div className="feeInputs">
@@ -35,7 +36,9 @@ function FeeScenario({ amount, currency }) {
       <span>Added cost: {money(extra, currency)}</span>
     </div> : <p role="alert">Enter a markup from 0 to 100% and a fixed fee from 0 to 1,000,000.</p>}
     <p className="hint">Illustration only. Provider rounding, taxes and settlement rates may differ. Nothing is charged or saved.</p>
-  </details>;
+  </details>
+    {valid && <PaymentSimulation key={`${amount}-${currency}-${percent}-${fixed}`} amount={amount} currency={currency} fees={extra} />}
+  </>;
 }
 
 export default function ScanInsights({ result }) {

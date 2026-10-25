@@ -1,6 +1,6 @@
 # Product scope: Travel QR Cost Estimator
 
-The original traveller problem is understanding a foreign merchant's amount in a familiar currency, estimating possible fees, and eventually paying through a supported provider. This application currently implements the **cost-estimation** part. It does not determine payment-app eligibility, obtain a bank's final quote, or execute payment.
+The original traveller problem is understanding a foreign merchant's amount in a familiar currency, estimating possible fees, and eventually paying through a supported provider. This application implements **cost estimation** and a clearly labelled, local-only **payment-flow simulation**. It does not determine payment-app eligibility, obtain a bank's final quote, or execute payment.
 
 ## Keep
 
@@ -11,6 +11,7 @@ The original traveller problem is understanding a foreign merchant's amount in a
 | From/To currency converter | Lets a traveller estimate values between supported currencies without needing a QR |
 | Original amount, rate, date and source | Makes the calculation understandable and its age visible |
 | User-entered fee scenario | Illustrates known markup/fixed-fee assumptions without inventing bank charges |
+| Optional local payment-flow simulation | Demonstrates review, simulated approval, cancellation and outcomes for a project presentation without bank access or money movement |
 | Optional saved scans | Lets private users review prior reference amounts |
 | Authentication, logout, expiry and user isolation | Protects those saved scans; these controls are not payment authorization |
 | Validation, throttling and clear failure messages | Prevents invalid estimates and limits abuse on the free deployment |

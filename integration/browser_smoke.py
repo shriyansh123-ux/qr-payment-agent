@@ -102,9 +102,49 @@ def run():
                 insights.get_by_label("Fixed fee (INR)", exact=True).fill("5")
                 expect(insights.locator(".feeEstimate strong")).to_have_text("INR 108.00")
                 expect(insights.get_by_text("Added cost: INR 8.00", exact=True)).to_be_visible()
+                # The project simulation is local-only and never creates payment requests/records.
+                simulation = page.get_by_role("region", name="Payment simulation", exact=True)
+                expect(simulation).to_contain_text("SIMULATION · NO REAL PAYMENT")
+                simulation_requests = []
+                def record_simulation_request(request):
+                    simulation_requests.append(request.url)
+                page.on("request", record_simulation_request)
+                simulation.get_by_role("button", name="Start payment simulation", exact=True).click()
+                expect(simulation).to_contain_text("INR 108.00")
+                simulation.get_by_role("button", name="Cancel simulation", exact=True).click()
+                expect(simulation.get_by_role("status")).to_have_text("Simulation cancelled — no payment was attempted.")
+                simulation.get_by_role("button", name="Reset simulation", exact=True).click()
+                for outcome, expected in [("success", "Simulation successful — no money moved."),
+                                          ("declined", "Simulation declined — no money moved."),
+                                          ("timeout", "Simulation timed out — no payment was attempted.")]:
+                    simulation.get_by_role("button", name="Start payment simulation", exact=True).click()
+                    simulation.get_by_label("Demo outcome", exact=True).select_option(outcome)
+                    simulation.get_by_role("button", name="Approve simulation", exact=True).click()
+                    expect(simulation.get_by_role("status")).to_contain_text("Simulation pending.")
+                    simulation.get_by_role("button", name="Show simulated result", exact=True).click()
+                    expect(simulation.get_by_role("status")).to_have_text(expected)
+                    expect(simulation.get_by_role("button", name="Approve simulation", exact=True)).to_have_count(0)
+                    simulation.get_by_role("button", name="Reset simulation", exact=True).click()
+                simulation.get_by_role("button", name="Start payment simulation", exact=True).click()
+                simulation.get_by_role("button", name="Approve simulation", exact=True).click()
+                simulation.get_by_role("button", name="Cancel simulation", exact=True).click()
+                expect(simulation.get_by_role("status")).to_have_text("Simulation cancelled — no payment was attempted.")
+                insights.get_by_label("FX markup (%)", exact=True).fill("4")
+                expect(simulation.get_by_role("button", name="Start payment simulation", exact=True)).to_be_visible()
+                expect(simulation.get_by_role("status")).to_have_count(0)
+                simulation.get_by_role("button", name="Start payment simulation", exact=True).click()
+                expect(simulation).to_contain_text("INR 109.00")
+                page.set_viewport_size({"width": 390, "height": 844})
+                assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+                page.set_viewport_size({"width": 1280, "height": 720})
+                assert simulation_requests == [], simulation_requests
+                page.remove_listener("request", record_simulation_request)
+                expect(page.locator(".accountTable tbody tr")).to_have_count(1)
+                assert page.evaluate("localStorage.length + sessionStorage.length") == 0
                 insights.get_by_label("FX markup (%)", exact=True).fill("-1")
                 expect(insights.get_by_role("alert")).to_be_visible()
                 expect(insights.locator(".feeEstimate")).to_have_count(0)
+                expect(simulation).to_have_count(0)
                 insights.get_by_label("FX markup (%)", exact=True).fill("0")
                 insights.get_by_label("Fixed fee (INR)", exact=True).fill("0")
 
