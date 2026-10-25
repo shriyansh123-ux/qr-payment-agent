@@ -12,7 +12,7 @@ The original traveller problem is understanding a foreign merchant's amount in a
 | Original amount, rate, date and source | Makes the calculation understandable and its age visible |
 | User-entered fee scenario | Illustrates known markup/fixed-fee assumptions without inventing bank charges |
 | Optional local payment-flow simulation | Demonstrates review, simulated approval, cancellation and outcomes for a project presentation without bank access or money movement |
-| Cash helper and local numeral equivalents | Helps travellers count unfamiliar notes/coins and check change; starts with verified everyday THB denominations, without FX or automatic rounding |
+| Cash helper and local numeral equivalents | Helps travellers count unfamiliar notes/coins and check change; uses reviewed THB/USD/EUR/JPY/INR/AED denomination sets, without FX or automatic rounding |
 | Optional saved scans | Lets private users review prior reference amounts |
 | Authentication, logout, expiry and user isolation | Protects those saved scans; these controls are not payment authorization |
 | Validation, throttling and clear failure messages | Prevents invalid estimates and limits abuse on the free deployment |

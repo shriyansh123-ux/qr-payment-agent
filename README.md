@@ -14,21 +14,23 @@ Understand a payment QR before opening your payment app: decode its amount, insp
 - **Conversion details:** original amount, reference conversion, exchange rate, publication date and source for each QR, including multi-QR results.
 - **Fee exploration:** enter a percentage markup and fixed fee to see their illustrative impact. These assumptions stay in the page and are not saved to account history.
 - **Payment-flow simulation:** review the estimate and assumed fees, simulate approval/cancellation and choose success/decline/timeout outcomes. It runs entirely in the page; no bank, payment app or provider is contacted and no payment status is saved.
-- **Cash helper (THB first):** note/coin suggestions, boxed Thai numeral equivalents, expected change and a quantity counter for matching returned change. Runs in the page without a key.
+- **Cash helper (THB, USD, EUR, JPY, INR, AED):** note/coin suggestions, boxed local numeral/word equivalents, expected change and a quantity counter for matching returned change. Runs in the page without a key.
 - **Private accounts:** sign in, scan synthetic text QR data, and retrieve or clear only your own saved summaries.
 - **Session handling:** tokens stay in React memory. Logout clears local account state; authenticated `401` responses return to sign-in and remove stale profile, history, results, and notices.
 
 ## Cash payments and numeral recognition
 
-Open **Cash helper**. The first supported currency is **Thai baht (THB)**; this is independent of the FX currency catalog. Enter the bill in THB, inspect one possible exact-payment combination, and enter the amount handed over (or try the next larger listed note). The helper shows expected change and a possible denomination breakdown. Enter the quantities of notes/coins actually returned to see an exact match, shortfall or extra amount. Any combination with the correct total passes.
+Open **Cash helper** and select **Cash currency**: Thai baht (THB), US dollar (USD), euro (EUR), Japanese yen (JPY), Indian rupee (INR) or UAE dirham (AED). This reviewed cash catalog is independent of the larger FX currency catalog. Changing currency clears amounts and counted quantities; amounts are never relabelled or converted silently.
 
-Each denomination displays a boxed Thai numeral equivalent beside its familiar value, including the distinction between baht and satang. These are recognition aids, not banknote reproductions or guarantees about markings on every series. Both familiar and Thai digits work in amount and quantity inputs.
+Enter the local cash bill, inspect one possible exact-payment combination, and enter the amount handed over (or try the next larger suggested note). The helper shows expected change and a possible denomination breakdown. Enter the quantities actually returned to identify a match, shortfall or excess. Any listed combination with the correct total passes. Note and coin counters stay separate even when they share the same face value.
 
-Example: bill **THB 117.75**, paid **THB 500**, expected change **THB 382.25**. Three 100-baht notes, one 50-baht note, one 20-baht note, one 10-baht coin, two 1-baht coins and one 25-satang coin match. Alternative combinations are equally valid.
+Boxes show Thai, Devanagari, Arabic-script or Japanese numeral/word equivalents, and familiar value labels for USD/EUR. These are recognition aids, not reproductions or guarantees about every note/coin series. Familiar and supported local digits can be entered; Japanese full-width digits also work. Use a decimal point (or Arabic decimal separator), without grouping commas. Yen accepts whole units only; other supported currencies allow two decimal places.
 
-Values use integer satang, never FX conversion or silent rounding. Everyday suggestions use 25/50-satang coins, 1/2/5/10-baht coins and 20/50/100/500/1,000-baht notes. Amounts that cannot be made with this list are explicitly flagged; agree any adjusted cash bill with the merchant. Suggestions assume denomination availability, not a known wallet inventory. No login/key is required, no cash details are sent to the server, and nothing is saved.
+Examples: **EUR 17.60** paid with **EUR 20** gives **EUR 2.40** change; **JPY 1,175** paid with **JPY 2,000** gives **JPY 825**. For Thai baht, bill **THB 117.75**, paid **THB 500**, expected change **THB 382.25**. An alternative combination with two 1-baht coins instead of one 2-baht coin is equally valid.
 
-Denominations checked 25 October 2026 against the [Bank of Thailand](https://www.bot.or.th/en/our-roles/banknotes/History-and-Series-of-Banknote-And-Commemorative/banknotes-series/banknote-series17.html) and [Thailand government currency guide](https://thailand.go.th/page/thai-currency). More currencies require separately verified denomination data.
+Arithmetic uses integer minor units, without FX or automatic rounding. Cash-rounding and small-coin availability depend on location; enter the actual agreed cash bill. Marked legacy notes can be counted but are excluded from suggestions. Suggestions assume denomination availability, not a known wallet inventory. No login/key is required, no cash details are sent to the server, and nothing is saved.
+
+See [cash catalog, official sources and exclusions](docs/CASH_CURRENCIES.md), checked 25 October 2026. The selected currency's guidance and source links are also shown in the app. This catalog is not an exhaustive list of every historical valid design or a guarantee of merchant acceptance.
 
 ## Hosted deployment
 

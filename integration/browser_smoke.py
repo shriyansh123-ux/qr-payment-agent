@@ -338,6 +338,43 @@ def run():
                 expect(cash.get_by_role("alert")).to_contain_text("Enter a bill greater than zero")
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 assert page.evaluate("localStorage.length + sessionStorage.length") == 0
+                expect(cash.get_by_label("Cash currency", exact=True).locator("option")).to_have_count(6)
+                examples = [
+                    ("USD", "17.60", "20", "USD 2.40", [("1 dollar note", "1"), ("1 dollar coin", "1"), ("10 cent coin (USD 0.10)", "4")]),
+                    ("EUR", "17.60", "20", "EUR 2.40", [("2 euro coin", "1"), ("20 cent coin (EUR 0.20)", "2")]),
+                    ("JPY", "1175", "2000", "JPY 825", [("500 yen coin", "1"), ("100 yen coin", "3"), ("10 yen coin", "2"), ("5 yen coin", "1")]),
+                    ("INR", "११७.५०", "२००", "INR 82.50", [("20 rupee note", "1"), ("20 rupee coin", "3"), ("2 rupee coin", "1"), ("50 paise coin (INR 0.50)", "1")]),
+                    ("AED", "١١٧٫٧٥", "٢٠٠", "AED 82.25", [("50 dirham note", "1"), ("20 dirham note", "1"), ("10 dirham note", "1"), ("1 dirham coin", "2"), ("25 fils coin (AED 0.25)", "1")]),
+                ]
+                for code, bill_value, paid_value, expected, returned in examples:
+                    cash.get_by_label("Cash currency", exact=True).select_option(code)
+                    expect(cash.get_by_label(f"Bill amount ({code})", exact=True)).to_have_value("")
+                    expect(cash.get_by_label(f"Amount handed over ({code})", exact=True)).to_have_value("")
+                    expect(cash.locator(".cashCheck")).to_have_count(0)
+                    expect(cash.locator(".cashExpected")).to_have_count(0)
+                    cash.get_by_label(f"Bill amount ({code})", exact=True).fill(bill_value)
+                    cash.get_by_label(f"Amount handed over ({code})", exact=True).fill(paid_value)
+                    expect(cash.locator(".cashExpected")).to_have_text(f"Expected change: {expected}")
+                    for denomination, quantity in returned:
+                        cash.get_by_label(f"Quantity received: {denomination}", exact=True).fill(quantity)
+                    expect(cash.locator(".cashCheck")).to_contain_text("Change matches exactly.")
+                    cash.get_by_role("button", name="Clear counted change", exact=True).click()
+                    first_label = f"Quantity received: {returned[0][0]}"
+                    cash.get_by_label(first_label, exact=True).fill("0")
+                    expect(cash.locator(".cashCheck")).to_contain_text(f"Change is short by {expected}.")
+                    if code == "JPY":
+                        cash.get_by_label("Bill amount (JPY)", exact=True).fill("1175.50")
+                        expect(cash.get_by_role("alert")).to_contain_text("Use whole yen only.")
+                        expect(cash.locator(".cashCheck")).to_have_count(0)
+                    if code in ["INR", "AED", "JPY"]:
+                        expected_native = {"INR":"१०० ₹", "AED":"١٠٠ د.إ", "JPY":"千円"}[code]
+                        expect(cash.locator(".cashDenominations").get_by_text(expected_native, exact=True)).to_be_visible()
+                    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+                cash.get_by_label("Cash currency", exact=True).select_option("EUR")
+                cash.get_by_label("Bill amount (EUR)", exact=True).fill("500")
+                exact_payment = cash.get_by_role("region", name="Suggested exact payment", exact=True)
+                expect(exact_payment).not_to_contain_text("500 euro note")
+                expect(cash.get_by_label("Quantity received: 500 euro note", exact=True)).to_have_count(1)
                 assert cash_requests == [], cash_requests
                 page.remove_listener("request", record_cash_request)
                 print("Browser E2E passed: demo, accounts, logout, expired sessions and service failures")
