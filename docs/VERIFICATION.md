@@ -2,6 +2,8 @@
 
 Documentation updated: **25 October 2026**. The checks below were completed on **24–25 October 2026**; they are a dated record, not continuous monitoring or a full security audit. No credentials, database URLs, token values, or private login files are included.
 
+The sections below are release history. Risk/AI features described in earlier checks were removed in PR #12; see the final scope section and [SCOPE.md](SCOPE.md) for the current application.
+
 ## Deployment and database
 
 - Existing Render Free service: `qr-payment-agent-demo`.
@@ -71,3 +73,15 @@ Free-plan quotas, cold starts, backup/retention arrangements, stronger identity 
 - All six jobs passed in [CI run 40169035239](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40169035239). New backend tests cover catalog filtering/caching, authentication, rounding, same-currency conversion, unsupported currencies, amount validation and provider failures. Browser checks cover list retry, both dropdowns, swap, stale-result cleanup, conversion errors and mobile overflow.
 - Render deployment `dep-dbeq2khsrm7s73cvkaug` reached live. Health returned ok; account registration remained disabled. The queried post-release error-log window contained no application error entries.
 - The converter reuses the existing private demo key and does not save conversion history, modify QR-encoded currencies, initiate payments, or provision paid resources. README instructions were updated with the feature.
+
+
+## Focused cost estimator cleanup — 25 October 2026
+
+[PR #12](https://github.com/shriyansh123-ux/qr-payment-agent/pull/12) was merged and deployed as commit `7d360733b1aafd94d2d925951c61eb4a6fafd819`. The interface is now named **Travel QR Cost Estimator**.
+
+- Removed the fixed recipient-unverified badge, risk/caution displays, risk modules and their extra USD lookup, AI scan commentary/client, raw JSON/debug displays, browser-locale guessing and unused merchant/risk history helpers.
+- Retained QR text/image reading, dated reference conversions, From/To currency selection, explicit fee scenarios, optional saved scans and their authentication/session protections. Reasons are documented in [SCOPE.md](SCOPE.md).
+- Existing account records were preserved. The retired NOT NULL caution column remains as a schema compatibility detail, not an assessed or displayed feature. Account history no longer returns that field; scan results no longer include `risk_result`.
+- All six jobs passed in [CI run 40170844281](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40170844281). New assertions verify same-currency scans make no external requests and that removed labels/debug views are absent, while conversion, fees, image decoding, history and sessions still work.
+- Live Render deployment `dep-dbeqgv0ae00c73e0t210` reached live. A pre-existing synthetic account signed in, its older history remained readable, and a new INR 100 scan returned conversion details without recipient/risk/debug/locale features. The separate currency dropdowns loaded 159 entries during this check.
+- Health returned ok, registration remained disabled and the service remained on Free. The queried post-deployment error-log window was empty. No paid resources or database schema deletion was performed.
