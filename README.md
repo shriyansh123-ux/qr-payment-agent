@@ -4,7 +4,7 @@ Understand a payment QR before opening your payment app: decode its amount, insp
 
 **Educational prototype.** This app does not send money, verify merchants, detect fraud, or quote a final bank/card charge. Use synthetic data only.
 
-[Hosted demo](https://qr-payment-agent-demo.onrender.com/) · [Setup and deployment](DEPLOYMENT.md) · [Verification report](docs/VERIFICATION.md) · [What belongs in the app](docs/SCOPE.md) · [International payment feasibility](docs/PAYMENT_FEASIBILITY.md)
+[Hosted demo](https://qr-payment-agent-demo.onrender.com/) · [Project explanation and presentation guide](docs/DEMO_GUIDE.md) · [Setup and deployment](DEPLOYMENT.md) · [Verification report](docs/VERIFICATION.md) · [What belongs in the app](docs/SCOPE.md) · [International payment feasibility](docs/PAYMENT_FEASIBILITY.md)
 
 ## Features
 
