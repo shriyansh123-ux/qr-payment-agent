@@ -164,6 +164,61 @@ def run():
                     "Signed out of this tab; server revocation was not confirmed.")
                 expect(page.locator(".accountTable")).to_have_count(0)
                 page.unroute("**/api/account/logout", unavailable)
+
+                # Manual conversion has two supported-currency selectors, independent of QR input.
+                currency_rows = [{"code": "USD", "name": "US Dollar"},
+                                 {"code": "EUR", "name": "Euro"},
+                                 {"code": "INR", "name": "Indian Rupee"}]
+                def currency_list(route):
+                    route.fulfill(json={"currencies": currency_rows})
+                def list_failure(route):
+                    route.fulfill(status=503, json={"detail": "Currency list unavailable"})
+                page.route("**/api/currencies", list_failure)
+                page.get_by_role("button", name="Currency converter", exact=True).click()
+                expect(page.get_by_role("alert")).to_have_text("Currency list unavailable")
+                page.unroute("**/api/currencies", list_failure)
+                page.route("**/api/currencies", currency_list)
+                page.get_by_role("button", name="Retry currency list").click()
+                expect(page.get_by_label("From currency", exact=True)).to_have_value("USD")
+                expect(page.get_by_label("To currency", exact=True)).to_have_value("INR")
+                expect(page.get_by_label("From currency", exact=True).locator("option")).to_have_count(3)
+                expect(page.get_by_label("To currency", exact=True).locator("option")).to_have_count(3)
+                expect(page.get_by_label("Demo API key", exact=True)).to_have_value(KEY)
+
+                def conversion(route):
+                    body = route.request.post_data_json
+                    assert route.request.headers["x-api-key"] == KEY
+                    rate = 1 if body["from_currency"] == body["to_currency"] else 2
+                    route.fulfill(json={"amount": body["amount"],
+                        "from_currency": body["from_currency"], "to_currency": body["to_currency"],
+                        "total_home": float(body["amount"]) * rate, "rate": rate,
+                        "rate_date": "2026-10-23", "provider": "synthetic-browser-reference"})
+
+                page.route("**/api/convert", conversion)
+                page.get_by_label("Amount to convert", exact=True).fill("10")
+                page.get_by_label("To currency", exact=True).select_option("EUR")
+                page.get_by_role("button", name="Convert", exact=True).click()
+                expect(page.locator(".convertedAmount")).to_have_text("EUR 20.00")
+                expect(page.locator(".conversionDetails")).to_contain_text("2026-10-23")
+                page.get_by_role("button", name="Swap currencies").click()
+                expect(page.get_by_label("From currency", exact=True)).to_have_value("EUR")
+                expect(page.get_by_label("To currency", exact=True)).to_have_value("USD")
+                expect(page.locator(".conversionDetails")).to_have_count(0)
+                page.get_by_label("To currency", exact=True).select_option("EUR")
+                page.get_by_role("button", name="Convert", exact=True).click()
+                expect(page.locator(".convertedAmount")).to_have_text("EUR 10.00")
+                page.get_by_label("Amount to convert", exact=True).fill("0")
+                page.get_by_role("button", name="Convert", exact=True).click()
+                expect(page.locator(".conversionDetails")).to_have_count(0)
+                page.get_by_label("Amount to convert", exact=True).fill("10")
+                page.unroute("**/api/convert", conversion)
+                page.route("**/api/convert", unavailable)
+                page.get_by_role("button", name="Convert", exact=True).click()
+                expect(page.get_by_role("alert")).to_have_text("Temporarily unavailable")
+                expect(page.locator(".convertedAmount")).to_have_text("—")
+                page.unroute("**/api/convert", unavailable)
+                page.set_viewport_size({"width": 390, "height": 844})
+                assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 assert page.evaluate("localStorage.length") == 0
                 print("Browser E2E passed: demo, accounts, logout, expired sessions and service failures")
 
