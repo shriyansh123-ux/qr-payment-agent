@@ -18,8 +18,6 @@ memory = SimpleMemoryBank()
 user_id = "ui-user"
 memory.upsert_profile(user_id, {
     "home_currency": "INR",
-    "preferred_card": "VISA",
-    "risk_preference": "balanced",
 })
 
 orchestrator = OrchestratorAgent(sessions, memory)
@@ -43,16 +41,14 @@ def summarize_row(result: dict, mode: str, input_repr: str):
     if result.get("multiple"):
         total = result.get("total_home", 0.0)
         msg = result.get("message", "")
-        return [ts, mode, input_repr, "INR", f"{total:.2f}", "mixed", msg[:120]]
+        return [ts, mode, input_repr, "INR", f"{total:.2f}", msg[:120]]
 
     fx = result.get("fx_result", {})
-    risk = result.get("risk_result", {})
     home_cur = fx.get("to_currency", "INR")
     total = fx.get("total_home", 0.0)
-    risk_level = risk.get("risk_level", "")
     msg = result.get("message", "")
 
-    return [ts, mode, input_repr, home_cur, f"{float(total):.2f}", risk_level, msg[:120]]
+    return [ts, mode, input_repr, home_cur, f"{float(total):.2f}", msg[:120]]
 
 
 def process_request(input_mode, image, qr_text, history):
@@ -61,7 +57,7 @@ def process_request(input_mode, image, qr_text, history):
     try:
         if input_mode == "Image":
             if not image:
-                return {"error": "Please upload a QR image."}, history_list
+                return "Please upload a QR image.", history_list
 
             # In many Gradio versions, type="filepath" gives a string path
             if isinstance(image, str):
@@ -80,7 +76,7 @@ def process_request(input_mode, image, qr_text, history):
         else:
             qr_text = (qr_text or "").strip()
             if not qr_text:
-                return {"error": "Please enter a QR payload string."}, history_list
+                return "Please enter a QR payload string.", history_list
 
             result = orchestrator.handle_qr_scan(
                 user_id=user_id,
@@ -94,13 +90,12 @@ def process_request(input_mode, image, qr_text, history):
         row = summarize_row(result, input_mode, input_repr)
         history_list = history_list + [row]
 
-        return result, history_list
+        return result.get("message", "No conversion available."), history_list
 
     except Exception as e:
-        err = {"error": f"{e}"}
-        row = [datetime.now().strftime("%H:%M:%S"), input_mode, "ERROR", "", "", "", str(e)[:120]]
+        row = [datetime.now().strftime("%H:%M:%S"), input_mode, "ERROR", "", "", str(e)[:120]]
         history_list = history_list + [row]
-        return err, history_list
+        return str(e), history_list
 
 
 custom_css = """
@@ -117,7 +112,7 @@ tbody td { color: #e5e7eb !important; }
 with gr.Blocks() as demo:
     gr.HTML(f"<style>{custom_css}</style>")
 
-    gr.Markdown("# Universal QR Payment Translator")
+    gr.Markdown("# Travel QR Cost Estimator")
     gr.Markdown("Upload a QR image or paste QR text (supports multi-QR separated by comma/newline).")
 
     input_mode = gr.Radio(["Image", "Text"], value="Image", label="Input Type")
@@ -128,11 +123,11 @@ with gr.Blocks() as demo:
 
     run_button = gr.Button("Translate Payment", variant="primary")
 
-    output_json = gr.JSON(label="Agent Output")
+    output_summary = gr.Textbox(label="Conversion summary", lines=4)
 
     gr.Markdown("### History")
     history_table = gr.Dataframe(
-        headers=["time", "mode", "input", "home_currency", "total_home", "risk", "note"],
+        headers=["time", "mode", "input", "home_currency", "total_home", "note"],
         interactive=False,
         wrap=True,
     )
@@ -142,7 +137,7 @@ with gr.Blocks() as demo:
     run_button.click(
         fn=process_request,
         inputs=[input_mode, image_input, qr_text_input, state],
-        outputs=[output_json, history_table],
+        outputs=[output_summary, history_table],
         show_progress=True,
     ).then(
         fn=lambda h: h,

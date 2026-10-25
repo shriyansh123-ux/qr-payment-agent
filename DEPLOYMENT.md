@@ -38,7 +38,7 @@ Useful checks:
 - Submit `upi://pay?pa=merchant@upi&am=100&cu=INR`.
 - Expected *reference* amount: INR 100 before provider fees, with an **unverified** payee.
 
-Gemini explanations are optional. Only set `GEMINI_API_KEY` in a trusted backend environment; no Gemini credential is required for core calculations.
+Scan explanations are deterministic amount/rate breakdowns. No AI provider or Gemini credential is needed.
 
 ## Option B: unified Docker image
 
@@ -95,11 +95,14 @@ Free services may sleep or reach quotas. Review provider limits, retention and b
 | `QR_API_KEY` | Required development API secret | Not configured; must set |
 | `QR_DATABASE_URL` | Optional account database; use a TLS PostgreSQL URL on hosted deployments | Not configured by the repository; existing service configured privately |
 | `QR_ALLOW_REGISTRATION` | Controls account creation | `false`; keep disabled on hosted service |
-| `GEMINI_API_KEY` | Optional LLM explanation API | Not configured; deterministic fallback |
 | `PORT` | Uvicorn HTTP listening port in Docker | 8000; Render config sets 10000 |
 | `QR_CORS_ORIGINS` | Explicit cross-origin requests, if you add a separate frontend | Localhost dev origins |
 | `VITE_API_BASE` | Optional API origin override for special deployments | Empty; same origin |
 
 ## Verification
 
-CI runs Python tests, live FX checks, React build/lint/npm audit, Docker HTTP checks, bounded localhost load checks, and Chromium browser regressions. Coverage includes account/session behavior, per-QR explanation details and the user-entered fee calculator. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for completed live checks and their limits. Results remain reference conversions, actual provider fees are unquoted, and merchant identifiers are unverified.
+CI runs Python tests, live FX checks, React build/lint/npm audit, Docker HTTP checks, bounded localhost load checks, and Chromium browser regressions. Coverage includes account/session behavior, per-QR conversion details and the user-entered fee calculator. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for completed live checks and their limits. Results remain reference conversions, actual provider fees are unquoted, and merchant identifiers are unverified.
+
+## Focused application scope
+
+The interface is named **Travel QR Cost Estimator**. Risk scoring, the fixed recipient-unverified badge, AI calls, raw JSON views and browser-locale guessing are removed. Currency conversion, QR decoding, fee scenarios and optional private saved scans remain. Existing records and deployment secrets are preserved; the retired caution database column is not assessed or displayed. See [docs/SCOPE.md](docs/SCOPE.md).

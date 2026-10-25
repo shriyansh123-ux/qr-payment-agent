@@ -1,20 +1,19 @@
-# QR Payment Agent — Cross-Currency QR Reference Translator
+# Travel QR Cost Estimator
 
-Understand a payment QR before opening your payment app: decode its amount, inspect a dated currency conversion and caution reasons, and explore how provider fees could affect the estimate.
+Understand a payment QR before opening your payment app: decode its amount, inspect a dated currency conversion, and explore how provider fees could affect the estimate.
 
 **Educational prototype.** This app does not send money, verify merchants, detect fraud, or quote a final bank/card charge. Use synthetic data only.
 
-[Hosted demo](https://qr-payment-agent-demo.onrender.com/) · [Setup and deployment](DEPLOYMENT.md) · [Verification report](docs/VERIFICATION.md)
+[Hosted demo](https://qr-payment-agent-demo.onrender.com/) · [Setup and deployment](DEPLOYMENT.md) · [Verification report](docs/VERIFICATION.md) · [What belongs in the app](docs/SCOPE.md)
 
 ## Features
 
 - **Text and image input:** amount-bearing UPI URIs, demo QR strings, and a restricted subset of EMV merchant-presented QR.
 - **Manual currency converter:** separate From and To blocks, an amount input, provider-supported currency dropdowns and a swap button. Choose any listed pair; a fresh reference rate must still be available.
-- **Explainable results:** original amount, reference conversion, exchange rate, publication date, source, and specific caution reasons for each QR, including multi-QR results.
+- **Conversion details:** original amount, reference conversion, exchange rate, publication date and source for each QR, including multi-QR results.
 - **Fee exploration:** enter a percentage markup and fixed fee to see their illustrative impact. These assumptions stay in the page and are not saved to account history.
 - **Private accounts:** sign in, scan synthetic text QR data, and retrieve or clear only your own saved summaries.
 - **Session handling:** tokens stay in React memory. Logout clears local account state; authenticated `401` responses return to sign-in and remove stale profile, history, results, and notices.
-- **Optional AI explanation:** Gemini explains computed results; it does not calculate exchange rates. Core calculations work without a Gemini credential.
 
 ## Hosted deployment
 
@@ -38,10 +37,8 @@ flowchart LR
     UI[React / Vite] --> API[FastAPI on Render]
     API --> Parser[QR parsing and validation]
     Parser --> FX[Dated reference FX]
-    Parser --> Caution[Explainable caution heuristics]
     FX --> Rates[Frankfurter reference feeds]
     API --> DB[(Neon: private accounts and summaries)]
-    API -. optional explanation .-> Gemini[Gemini]
 ```
 
 Docker builds React and serves the frontend and API from one origin. Gradio and the CLI remain separate local interfaces. Redis is optional; the deployed architecture does not require a Redis resource.
@@ -66,7 +63,7 @@ The dropdown catalog is fetched from Frankfurter, cached for one hour and filter
 
 1. Run locally, or use authorized private access to the hosted demo.
 2. Scan `upi://pay?pa=merchant@upi&am=100&cu=INR`.
-3. Inspect **Understand this QR**: INR 100 original and reference amounts, a same-currency rate of 1, and an explicitly unverified recipient.
+3. Inspect **Conversion details**: INR 100 original and reference amounts, a same-currency rate of 1, and the source/date of that conversion.
 4. Open **Explore provider fees**. Enter 3% markup and INR 5 fixed fee.
 5. The illustrated total is **INR 108**, including **INR 8** added cost.
 
@@ -102,7 +99,6 @@ For Gradio, install `requirements.txt` and run `python -m src.ui.app`. It calls 
 | `QR_DATABASE_URL` | SQLite URL locally, or TLS-enabled PostgreSQL URL for hosted accounts; server secret only |
 | `QR_ALLOW_REGISTRATION` | Defaults to `false`; keep `false` on the hosted deployment |
 | `PORT` | Container listening port; preserve the existing Render setting |
-| `GEMINI_API_KEY` | Optional backend-only AI credential |
 | `REDIS_URL` | Optional shared throttle counters; no new resource is required |
 | `QR_CORS_ORIGINS` | Explicit frontend origins when using separate origins |
 | `VITE_API_BASE` | Optional public API-origin override; empty for same-origin hosting; never a secret |
@@ -121,17 +117,17 @@ Account endpoints use bearer authentication independently of the shared demo key
 
 Passwords use salted scrypt. Random bearer tokens expire after one hour; only their SHA-256 digests are stored. Logout removes the current token. Browser reload clears the local token but does not itself revoke the server token. Failed logout clears local credentials and warns that server revocation was not confirmed.
 
-Queries are parameterized. Account history is scoped to the authenticated user and stores timestamp, currency, derived total and caution level, excluding raw QR text and payee identifiers. Full breakdowns and fee assumptions are not saved in summary history. Account emails, password hashes and token digests still require appropriate database protection.
+Queries are parameterized. Account history is scoped to the authenticated user and stores timestamp, currency and derived total, excluding raw QR text and payee identifiers. Full breakdowns and fee assumptions are not saved in summary history. Account emails, password hashes and token digests still require appropriate database protection.
 
-The shared QR demo's history is temporary browser state. Backend conversational sessions expire after 30 minutes of inactivity and are bounded to 256 per process; these differ from database-backed account sessions. Current-result raw JSON can contain parsed QR data. Neither developer keys nor account tokens are saved in browser local/session storage.
+The shared QR demo's history is temporary browser state. Backend conversational sessions expire after 30 minutes of inactivity and are bounded to 256 per process; these differ from database-backed account sessions. Neither developer keys nor account tokens are saved in browser local/session storage.
 
-## Rates and caution boundaries
+## Reference rates
 
 The FX agent uses [Frankfurter](https://frankfurter.dev/) dated reference rates: a blended v2 feed with an ECB-backed v1 fallback. It validates positive rates and publication dates no more than seven days old, rejecting future dates and unavailable/stale data. Same-currency conversion uses rate 1 and the current date. Neither feed is an executed payment-provider rate.
 
 `total_home` is the reference conversion **before fees**. Backend fee fields are placeholders with `fee_status: not_quoted`; the UI calculator is a separate user-entered scenario.
 
-Caution levels use transparent heuristics, primarily USD-equivalent transaction size and whether a claimed payee identifier exists. `not_assessed` means transaction-size assessment was unavailable, not that the QR is safe. Repeated payees, country codes and low caution levels do not verify a merchant or establish a fraud probability.
+Risk scoring, the recipient-verification badge, AI commentary, raw-JSON displays and browser-locale guessing have been removed. The scan flow performs the requested reference conversion without an extra USD risk lookup or AI request. Existing account data is preserved; a retired database column remains only for schema compatibility. See [the scope decisions](docs/SCOPE.md) for why each feature was kept or removed.
 
 ## Verification and tests
 

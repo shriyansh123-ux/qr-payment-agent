@@ -1,5 +1,4 @@
 """Image decoding, auth and upload integration tests with no external calls."""
-from decimal import Decimal
 from io import BytesIO
 
 import cv2
@@ -9,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.agents.qr_image_agent import QRImageAgent
-from src.api.server import app, orchestrator
+from src.api.server import app
 from src.tools import decode_qr_image_tool
 
 KEY = "local-test-only-key-at-least-twenty-four-characters"
@@ -24,9 +23,6 @@ def _png(payload):
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("QR_API_KEY", KEY)
-    monkeypatch.setattr(orchestrator.fx_agent, "usd_equivalent", lambda amount, cur: Decimal("10"))
-    monkeypatch.setattr("src.orchestration.orchestrator_agent.call_gemini",
-                        lambda prompt: "Demo reference amount only, recipient unverified.")
     with TestClient(app) as c:
         yield c
 

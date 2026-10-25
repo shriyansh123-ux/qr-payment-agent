@@ -14,13 +14,11 @@ def main():
     user_id = "user-123"
     memory.upsert_profile(user_id, {
         "home_currency": "INR",
-        "preferred_card": "VISA_CREDIT",
-        "risk_preference": "balanced",
     })
 
     orchestrator = OrchestratorAgent(sessions, memory)
 
-    print("=== Universal Global QR Payment Translator Agent ===")
+    print("=== Travel QR Cost Estimator ===")
     mode = input("Do you want to scan a text QR or an image QR? (t/i): ").strip().lower()
 
     if mode == "i":
@@ -42,7 +40,6 @@ def main():
 
     print("\n=== Agent Response ===")
     print(result["message"])
-    print("\nRaw details:\n", result)
 
 
 if __name__ == "__main__":

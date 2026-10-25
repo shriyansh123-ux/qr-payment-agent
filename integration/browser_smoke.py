@@ -20,7 +20,9 @@ def run():
             page = browser.new_page()
             try:
                 page.goto(os.getenv("QR_BROWSER_URL", "http://127.0.0.1:5173"), wait_until="domcontentloaded")
-                expect(page.get_by_role("heading", name="Universal QR Payment Translator")).to_be_visible()
+                expect(page.get_by_role("heading", name="Travel QR Cost Estimator")).to_be_visible()
+                expect(page.get_by_text("Browser locale region:", exact=False)).to_have_count(0)
+                expect(page.get_by_text("Show Raw JSON", exact=True)).to_have_count(0)
 
                 page.locator("#api-key").fill(KEY)
                 page.locator("textarea").fill(PAYLOAD)
@@ -29,7 +31,7 @@ def run():
                 scan = scan_response.value
                 assert scan.ok, f"Browser-to-API text scan failed: status={scan.status}, error={scan.text()[:300]}"
                 expect(page.locator(".money")).to_have_text("₹100.00", timeout=10000)
-                expect(page.locator(".noteCell")).to_have_count(1)
+                expect(page.locator(".demoHistory tbody tr")).to_have_count(1)
                 expect(page.get_by_text("Text QR (hidden)")).to_be_visible()
                 assert PAYLOAD not in page.locator("tbody").inner_text()
                 assert page.evaluate("sessionStorage.getItem(\'qr_demo_api_key\')") is None
@@ -38,13 +40,13 @@ def run():
                 page.locator("input[type=file]").set_input_files(str(qr_image))
                 page.get_by_role("button", name="Translate", exact=True).click()
                 expect(page.locator(".money")).to_have_text("₹100.00", timeout=30000)
-                expect(page.locator(".noteCell")).to_have_count(2)
+                expect(page.locator(".demoHistory tbody tr")).to_have_count(2)
 
                 page.get_by_role("button", name="Clear History").click()
                 expect(page.get_by_text("No history yet.")).to_be_visible()
                 # Optional account flows run only against a locally configured SQLite DB.
-                page.get_by_role("button", name="Accounts", exact=True).click()
-                expect(page.get_by_role("heading", name="Account workspace")).to_be_visible()
+                page.get_by_role("button", name="Saved scans", exact=True).click()
+                expect(page.get_by_role("heading", name="Saved scans")).to_be_visible()
                 page.get_by_role("button", name="Create test account").click()
                 page.locator("#account-email").fill("synthetic.browser@example.invalid")
                 page.locator("#account-password").fill("synthetic-example-password-1234")
@@ -58,11 +60,11 @@ def run():
                 expect(page.get_by_text("Stored summary history")).to_be_visible()
                 expect(page.locator(".accountTable tbody tr")).to_have_count(1, timeout=15000)
                 assert "merchant@upi" not in page.locator(".accountTable").inner_text()
-                insights = page.get_by_role("region", name="Understand this QR")
+                insights = page.get_by_role("region", name="Conversion details")
                 expect(insights).to_be_visible()
-                expect(insights.get_by_text("Recipient unverified", exact=True)).to_be_visible()
+                expect(page.get_by_text("Recipient unverified", exact=True)).to_have_count(0)
+                expect(page.locator(".pill, .raw, .cautionReasons")).to_have_count(0)
                 expect(insights.get_by_text("Same currency · no FX conversion", exact=True)).to_be_visible()
-                expect(insights.get_by_text("Why this caution level?", exact=True)).to_be_visible()
                 assert "merchant@upi" not in insights.inner_text()
                 insights.get_by_text("Explore provider fees", exact=True).click()
                 insights.get_by_label("FX markup (%)", exact=True).fill("3")
@@ -75,28 +77,25 @@ def run():
                 insights.get_by_label("FX markup (%)", exact=True).fill("0")
                 insights.get_by_label("Fixed fee (INR)", exact=True).fill("0")
 
-                # Exercise per-QR explanations without relying on a live FX provider.
+                # Exercise per-QR conversion details without relying on a live FX provider.
                 def multi_scan(route):
                     route.fulfill(json={"multiple": True, "total_home": 300, "items": [
                         {"qr_info": {"amount": 100, "raw_fields": {"scheme": "UPI"}},
                          "fx_result": {"from_currency": "INR", "to_currency": "INR",
                                        "rate": 1, "total_home": 100, "rate_date": "2026-10-23",
-                                       "provider": "same-currency"},
-                         "risk_result": {"risk_level": "low", "reasons": ["Synthetic first caution"]}},
+                                       "provider": "same-currency"}},
                         {"qr_info": {"amount": 2, "raw_fields": {"scheme": "DEMO"}},
                          "fx_result": {"from_currency": "USD", "to_currency": "INR",
                                        "rate": 100, "total_home": 200, "rate_date": "2026-10-23",
-                                       "provider": "synthetic-test-source"},
-                         "risk_result": {"risk_level": "not_assessed", "reasons": ["Synthetic second caution"]}}
+                                       "provider": "synthetic-test-source"}}
                     ]})
 
                 page.route("**/api/account/scan-text", multi_scan)
                 page.get_by_role("button", name="Translate and save summary").click()
                 expect(insights.locator(".scanBreakdown")).to_have_count(2)
-                expect(insights.get_by_text("Synthetic second caution", exact=True)).to_be_visible()
                 expect(insights.get_by_text("synthetic-test-source", exact=True)).to_be_visible()
                 expect(insights.get_by_text("2026-10-23", exact=True)).to_have_count(2)
-                expect(insights.get_by_text("Caution: not assessed", exact=True)).to_be_visible()
+                expect(insights.get_by_text("Original amount", exact=True)).to_have_count(2)
                 expect(insights.locator(".feeEstimate strong")).to_have_text("INR 300.00")
                 page.unroute("**/api/account/scan-text", multi_scan)
                 page.get_by_role("button", name="Sign out").click()

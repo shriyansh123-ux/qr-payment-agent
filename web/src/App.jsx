@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import "./App.css";
 import { scanImage, scanText, clearHistory } from "./lib/api";
 import AccountPanel from "./components/AccountPanel";
@@ -27,30 +27,6 @@ function extractTotalINR(result) {
   return null;
 }
 
-function extractRisk(result) {
-  if (!result) return "unknown";
-
-  if (result.multiple && Array.isArray(result.items)) {
-    const levels = result.items
-      .map((x) => x?.risk_result?.risk_level)
-      .filter(Boolean);
-
-    if (!levels.length) return "unknown";
-
-    // if different, say mixed
-    const uniq = new Set(levels);
-    if (uniq.size > 1) return "mixed";
-    return levels[0];
-  }
-
-  return result?.risk_result?.risk_level || "unknown";
-}
-
-function extractNote(result) {
-  if (!result) return "";
-  return result.message || result.error || "";
-}
-
 export default function App() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [workspace, setWorkspace] = useState("demo");
@@ -59,25 +35,13 @@ export default function App() {
   const [imageFile, setImageFile] = useState(null);
 
   const [sessionId, setSessionId] = useState(""); // backend will return real session id
-  const [userCountry, setUserCountry] = useState("");
 
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // The browser locale is not the user's physical location. Validate its region
-  // (some browsers report e.g. en-US@POSIX or zh-Hant-TW).
-  useEffect(() => {
-    const locale = (navigator.language || "").split("@")[0];
-    const region = locale.split(/[-_]/).slice(1)
-      .find((part) => /^[A-Za-z]{2}$/.test(part));
-    setUserCountry(region ? region.toUpperCase() : "");
-  }, []);
-
   const totalINR = useMemo(() => extractTotalINR(result), [result]);
-  const risk = useMemo(() => extractRisk(result), [result]);
-  const note = useMemo(() => extractNote(result), [result]);
 
   function pushHistoryRow(inputLabel, resObj) {
     const t = new Date();
@@ -87,13 +51,6 @@ export default function App() {
       time,
       input: inputLabel,
       total: extractTotalINR(resObj),
-      risk: extractRisk(resObj),
-      note: extractNote(resObj),
-      raw: {
-        fx_result: resObj?.fx_result || null,
-        risk_result: resObj?.risk_result || null,
-        total_home: resObj?.total_home || null,
-      },
     };
 
     setHistory((prev) => [row, ...prev]);
@@ -115,7 +72,6 @@ export default function App() {
           user_id: USER_ID,
           session_id: sessionId,
           qr_payload: payload,
-          user_country: userCountry,
         });
         setSessionId(res.session_id || sessionId);
         setResult(res);
@@ -127,7 +83,6 @@ export default function App() {
           user_id: USER_ID,
           session_id: sessionId,
           file: imageFile,
-          user_country: userCountry,
         });
         setSessionId(res.session_id || sessionId);
         setResult(res);
@@ -136,9 +91,6 @@ export default function App() {
     } catch (e) {
       const msg = e?.message || "Failed to translate";
       setError(msg);
-      const fake = { error: msg, message: msg };
-      setResult(fake);
-      pushHistoryRow(mode === "text" ? "Text QR (hidden)" : "QR image", fake);
     } finally {
       setLoading(false);
     }
@@ -158,18 +110,17 @@ export default function App() {
   return (
     <div className="page">
       <div className="container">
-        <h1 className="title">Universal QR Payment Translator</h1>
+        <h1 className="title">Travel QR Cost Estimator</h1>
         <p className="subtitle">
-          Paste QR text or upload a QR image. Get indicative FX estimates before provider fees and heuristic caution flags in INR.
-          <span className="region">Browser locale region: <b>{userCountry || "Unknown"}</b></span>
+          Read a supported payment QR, understand its currency value, and estimate how provider fees could affect the cost. No payments are made here.
         </p>
 
         <div className="tabs" role="group" aria-label="Workspace">
           <button type="button" className={`tab ${workspace === "demo" ? "active" : ""}`} onClick={() => setWorkspace("demo")}>QR demo</button>
-          <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} onClick={() => setWorkspace("account")}>Accounts</button>
+          <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} onClick={() => setWorkspace("account")}>Saved scans</button>
           <button type="button" className={`tab ${workspace === "converter" ? "active" : ""}`} onClick={() => setWorkspace("converter")}>Currency converter</button>
         </div>
-        {workspace === "account" ? <AccountPanel userCountry={userCountry} />
+        {workspace === "account" ? <AccountPanel />
           : workspace === "converter" ? <CurrencyConverter apiKey={apiKeyInput} onApiKeyChange={setApiKeyInput} /> : <>
         <div className="card">
           <label className="label" htmlFor="api-key">Local demo API key (required)</label>
@@ -230,17 +181,12 @@ export default function App() {
 
         <div className="card">
           <h2 className="sectionTitle">Result</h2>
-          <div className="resultText">{note || "No result yet."}</div>
+          {!result && <p className="hintText">Scan a QR to see its reference conversion.</p>}
 
           <div className="resultRow">
             <div className="total">Reference estimate (before fees): <span className="money">{formatINR(totalINR)}</span></div>
-            <span className={`pill ${risk}`}>{risk}</span>
           </div>
 
-          <details className="raw">
-            <summary>Show Raw JSON</summary>
-            <pre>{JSON.stringify(result, null, 2)}</pre>
-          </details>
           <ScanInsights result={result} />
         </div>
 
@@ -250,35 +196,25 @@ export default function App() {
           </div>
 
           <div className="tableWrap">
-            <table className="table">
+            <table className="table demoHistory">
               <thead>
                 <tr>
                   <th>Time</th>
                   <th>Input</th>
                   <th>Total (INR)</th>
-                  <th>Risk</th>
-                  <th>Note</th>
                 </tr>
               </thead>
               <tbody>
                 {history.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="empty">No history yet.</td>
+                    <td colSpan="3" className="empty">No history yet.</td>
                   </tr>
                 ) : (
                   history.map((r, idx) => (
                     <tr key={idx}>
                       <td className="mono">{r.time}</td>
                       <td className="mono">{r.input}</td>
-                      <td className="mono">{formatINR(r.total).replace("₹", "₹")}</td>
-                      <td><span className={`pill ${r.risk}`}>{r.risk}</span></td>
-                      <td className="noteCell">
-                        <details>
-                          <summary>View</summary>
-                          <div className="noteFull">{r.note}</div>
-                          <pre className="noteJson">{JSON.stringify(r.raw, null, 2)}</pre>
-                        </details>
-                      </td>
+                      <td className="mono">{formatINR(r.total)}</td>
                     </tr>
                   ))
                 )}

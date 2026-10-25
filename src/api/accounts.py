@@ -188,10 +188,10 @@ def history(authorization: str = Header(default="")):
     uid = _account_id(authorization)
     with _connect() as (db, pg):
         entries = _query(db, pg,
-            "SELECT timestamp,currency,total_home,risk_level FROM qr_scan_summaries WHERE user_id=? ORDER BY timestamp DESC LIMIT 50",
+            "SELECT timestamp,currency,total_home FROM qr_scan_summaries WHERE user_id=? ORDER BY timestamp DESC LIMIT 50",
             (uid,)).fetchall()
-    return {"items": [{"timestamp": t, "currency": c, "total_home": total, "risk_level": risk}
-                       for t, c, total, risk in entries]}
+    return {"items": [{"timestamp": t, "currency": c, "total_home": total}
+                       for t, c, total in entries]}
 
 
 @router.post("/clear-history")
@@ -224,11 +224,11 @@ def scan_text(req: AccountScan, authorization: str = Header(default="")):
     multiple = result.get("multiple", False)
     first = result["items"][0] if multiple else result
     fx = first["fx_result"]
-    score = first["risk_result"]
     total = result["total_home"] if multiple else fx["total_home"]
     currency = fx["to_currency"]
     with _connect() as (db, pg):
         _query(db, pg,
             "INSERT INTO qr_scan_summaries (id,user_id,timestamp,currency,total_home,risk_level) VALUES (?,?,?,?,?,?)",
-            (str(uuid.uuid4()), uid, int(time.time()), currency, str(total), score.get("risk_level", "unknown")))
+               # Retain the former NOT NULL column without a destructive database migration.
+               (str(uuid.uuid4()), uid, int(time.time()), currency, str(total), "not_assessed"))
     return {"success": True, **result}

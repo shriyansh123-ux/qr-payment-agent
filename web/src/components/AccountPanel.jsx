@@ -13,7 +13,7 @@ function formatMoney(value, currency) {
   return `${currency || "INR"} ${amount.toFixed(2)}`;
 }
 
-export default function AccountPanel({ userCountry }) {
+export default function AccountPanel() {
   const [status, setStatus] = useState(null);
   const [statusError, setStatusError] = useState("");
   const [action, setAction] = useState("login");
@@ -97,7 +97,7 @@ export default function AccountPanel({ userCountry }) {
     setError("");
     setResult(null);
     try {
-      const response = await accountScanText(token, qrText.trim(), userCountry);
+      const response = await accountScanText(token, qrText.trim());
       setResult(response);
       await refreshHistory(token);
     } catch (problem) {
@@ -140,24 +140,24 @@ export default function AccountPanel({ userCountry }) {
     }
   }
 
-  if (statusError) return <section className="card" aria-label="Account workspace">
-    <h2 className="sectionTitle">Account workspace</h2>
+  if (statusError) return <section className="card" aria-label="Saved scans">
+    <h2 className="sectionTitle">Saved scans</h2>
     <p role="alert">{statusError} The local demo remains available.</p>
   </section>;
 
-  if (!status) return <section className="card" aria-label="Account workspace">
-    <h2 className="sectionTitle">Account workspace</h2>
+  if (!status) return <section className="card" aria-label="Saved scans">
+    <h2 className="sectionTitle">Saved scans</h2>
     <p>Checking account availability…</p>
   </section>;
 
-  if (!status.enabled) return <section className="card" aria-label="Account workspace">
-    <h2 className="sectionTitle">Account workspace</h2>
+  if (!status.enabled) return <section className="card" aria-label="Saved scans">
+    <h2 className="sectionTitle">Saved scans</h2>
     <p className="hintText">Account mode is not enabled on this deployment. Connect a durable PostgreSQL database using a server-side environment variable to enable it. The QR demo remains available.</p>
     <p className="hint">Registration and persistent history are intentionally disabled without configured storage. No paid services are needed for local SQLite development.</p>
   </section>;
 
-  return <section className="card" aria-label="Account workspace">
-    <h2 className="sectionTitle">Account workspace</h2>
+  return <section className="card" aria-label="Saved scans">
+    <h2 className="sectionTitle">Saved scans</h2>
     <p className="hintText">Educational account demo. No real card details or payment credentials. Sessions are held only in memory in this browser tab.</p>
     {error ? <p className="error" role="alert">{error}</p> : null}
     {message ? <p className="accountNotice" role="status">{message}</p> : null}
@@ -188,7 +188,7 @@ export default function AccountPanel({ userCountry }) {
         <strong>Reference estimate:</strong> {result.multiple
           ? formatMoney(result.total_home, "INR")
           : formatMoney(result.fx_result?.total_home, result.fx_result?.to_currency)}
-        <p className="hint">Indicative exchange rate, not a payment quote. No merchant identity is verified.</p>
+        <p className="hint">Reference conversion before provider fees.</p>
       </div>}
       <ScanInsights result={result} />
       <div className="accountBar">
@@ -197,11 +197,10 @@ export default function AccountPanel({ userCountry }) {
       </div>
       {rows.length === 0 ? <p>No saved summaries yet.</p> :
         <div className="tableWrap"><table className="table accountTable">
-          <thead><tr><th>Time</th><th>Currency</th><th>Reference total</th><th>Caution</th></tr></thead>
+          <thead><tr><th>Time</th><th>Currency</th><th>Reference total</th></tr></thead>
           <tbody>{rows.map((row, index) => <tr key={`${row.timestamp}-${index}`}>
             <td>{new Date(row.timestamp * 1000).toLocaleString()}</td>
             <td>{row.currency}</td><td>{formatMoney(row.total_home, row.currency)}</td>
-            <td>{row.risk_level}</td>
           </tr>)}</tbody>
         </table></div>}
     </>}

@@ -4,7 +4,6 @@ import pytest
 from fastapi.testclient import TestClient
 from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable, _RATE_CACHE
 from src.agents.qr_parser_agent import QRParserAgent
-from src.agents.risk_scorer import RiskScorer
 from src.api.server import app
 
 
@@ -44,10 +43,6 @@ def test_same_currency_has_no_invented_fee():
     data = FXRateAgent().handle(100, "INR", "INR")
     assert data["total_home"] == 100
     assert data["fee_status"] == "not_quoted"
-
-
-def test_risk_not_assessed_without_usd_rate():
-    assert RiskScorer().evaluate(None, "JP", 500, None)["risk_level"] == "not_assessed"
 
 
 def test_api_requires_key(monkeypatch):
