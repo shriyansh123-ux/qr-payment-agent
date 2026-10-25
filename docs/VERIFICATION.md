@@ -2,7 +2,13 @@
 
 Documentation updated: **25 October 2026**. The checks below were completed on **24–25 October 2026**; they are a dated record, not continuous monitoring or a full security audit. No credentials, database URLs, token values, or private login files are included.
 
-The sections below are release history. Risk/AI features described in earlier checks were removed in PR #12; see the final scope section and [SCOPE.md](SCOPE.md) for the current application.
+## Current version at handoff
+
+The implemented educational/portfolio scope is complete: supported QR reading, dated reference FX, fee scenarios, local payment simulation, six-currency cash assistance and private saved summaries. The latest deployed feature commit is `c42cf9b98effe12833fb0ec42e12730c380d28cf` (PR #16), verified on 25 October 2026. Its six CI jobs passed, including seven cash arithmetic tests. This documentation update does not rerun or extend that evidence.
+
+Pending manual checks are physical-phone camera launch, on-device Thai/Devanagari/Arabic/Japanese rendering, a few uncoached usability walkthroughs and a presentation rehearsal. Do not report those as passed until performed. Real payments remain outside this version; provider onboarding is deferred rather than an outstanding completion requirement.
+
+The sections below are release history. Risk/AI features described in earlier checks were removed in PR #12; see [SCOPE.md](SCOPE.md) and the [README](../README.md) for the current application.
 
 ## Deployment and database
 

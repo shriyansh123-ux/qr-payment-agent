@@ -1,12 +1,12 @@
-# Running and deploying QR Payment Agent
+# Running and deploying Travel QR Cost Estimator
 
-This repository is an **educational reference-rate QR interpreter**, not a payment processor, bank integration, or fraud-verification product. Use only synthetic/demo payloads until stronger identity, storage and security controls are implemented.
+This repository is an **educational travel cost and cash-payment helper**, including QR/reference-FX estimates, user-entered fee scenarios, six-currency cash counting and a local payment-flow simulation. It does not execute payments or verify merchants. Use synthetic/demo inputs.
 
 ## Requirements
 
 - Python 3.13, Git and Node.js 22 (local development).
 - Docker (optional, for one-container testing).
-- A randomly generated development-only API key (at least 24 characters). Never commit secrets.
+- A randomly generated development-only API key (at least 24 characters) for QR demo and manual FX conversion. Cash helper needs no key or account. Never commit secrets.
 
 ## Option A: local React + FastAPI
 
@@ -30,13 +30,15 @@ npm ci
 npm run dev
 ```
 
-Visit `http://127.0.0.1:5173`. Enter the **same** key in the React form. The Vite dev server proxies requests from `/api` to `http://127.0.0.1:8000`. No frontend API URL or Vite build-time secret is needed.
+Visit `http://127.0.0.1:5173`. Open **Cash helper** without credentials, or enter the **same** key in the QR demo/converter form. The Vite dev server proxies requests from `/api` to `http://127.0.0.1:8000`. No frontend API URL or Vite build-time secret is needed.
 
 Useful checks:
 
 - `http://127.0.0.1:8000/api/health` responds with status `ok`.
 - Submit `upi://pay?pa=merchant@upi&am=100&cu=INR`.
-- Expected *reference* amount: INR 100 before provider fees, with an **unverified** payee.
+- With home currency INR, expected *reference* amount: INR 100 before provider fees. No recipient-verification badge is displayed and no identity check is performed.
+- Open Cash helper, choose EUR, enter bill 17.60 and paid amount 20: expected change is EUR 2.40. Count one 2-euro coin plus two 20-cent coins to match.
+- After a successful QR estimate, exercise the labelled simulation’s approval, pending, cancellation and selected outcome; it contacts no payment provider.
 
 Scan explanations are deterministic amount/rate breakdowns. No AI provider or Gemini credential is needed.
 
@@ -54,6 +56,8 @@ Open `http://127.0.0.1:8000`. The container respects `PORT` if a hosting platfor
 If Docker is unavailable locally, GitHub Actions builds and smoke-tests the container for you.
 
 ## Option C: Render web service (manual demo deployment)
+
+For this project, reuse the existing `qr-payment-agent-demo` service and `qr-payment-agent-db` database. The steps below describe a separate installation; do not create duplicate resources to update the existing app. The educational simulation needs no payment-provider account or business onboarding.
 
 The root `render.yaml` is a Render Blueprint for **one Docker web service**, with a health check at `/api/health`, optional free-tier instance choice and `autoDeployTrigger: off`.
 
@@ -101,8 +105,8 @@ Free services may sleep or reach quotas. Review provider limits, retention and b
 
 ## Verification
 
-CI runs Python tests, live FX checks, React build/lint/npm audit, Docker HTTP checks, bounded localhost load checks, and Chromium browser regressions. Coverage includes account/session behavior, per-QR conversion details and the user-entered fee calculator. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for completed live checks and their limits. Results remain reference conversions, actual provider fees are unquoted, and merchant identifiers are unverified.
+CI runs Python tests, live FX checks, React build/lint/npm audit, Docker HTTP checks, bounded localhost load checks, and Chromium browser regressions. Coverage includes account/session behavior, per-QR conversion details, user-entered fee scenarios, local payment-simulation outcomes and six-currency cash counting. The React job also runs `node --test tests/cash.test.js` for integer arithmetic, native input, precision and denomination handling. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for completed live checks and their limits. QR results remain reference conversions and actual provider fees are unquoted. Cash calculations apply no automatic rounding. Device-camera launch and physical-phone font rendering remain manual checks; no merchant identity verification is performed.
 
 ## Focused application scope
 
-The interface is named **Travel QR Cost Estimator**. Risk scoring, the fixed recipient-unverified badge, AI calls, raw JSON views and browser-locale guessing are removed. Currency conversion, QR decoding, fee scenarios and optional private saved scans remain. Existing records and deployment secrets are preserved; the retired caution database column is not assessed or displayed. See [docs/SCOPE.md](docs/SCOPE.md).
+The interface is named **Travel QR Cost Estimator**. Risk scoring, the fixed recipient-unverified badge, AI calls, raw JSON views and browser-locale guessing are removed. Currency conversion, QR decoding, fee scenarios, six-currency cash/numeral assistance, the local payment-flow simulation and optional private saved scans remain. Existing records and deployment secrets are preserved; the retired caution database column is not assessed or displayed. See [docs/SCOPE.md](docs/SCOPE.md).

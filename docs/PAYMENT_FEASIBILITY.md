@@ -2,11 +2,15 @@
 
 Reviewed: **25 October 2026**. This is a public-documentation assessment, not an approved integration or a legal opinion.
 
-## Decision
+## Status: deferred future-work research
 
-**Investigate Network International’s UAE UPI merchant-acceptance route as the first corridor. Do not implement a payment button yet.** Evidence supports participating UAE merchants accepting UPI; it does not establish access for this traveller-side application.
+The current project scope was subsequently settled as an educational cost/cash helper with a local-only payment simulation. No real payment integration or business onboarding is needed to complete it. This dated assessment is retained for reference; it is not a task awaiting implementation. Its sources and access findings have not been rechecked as part of this documentation cleanup.
 
-The app remains a reference-cost estimator. Provider onboarding, a supported integration channel, UPI-specific sandbox access and any costs require confirmation. No provider account, contract, sales enquiry or payment was submitted during this assessment, and no paid resources were created.
+## Historical assessment
+
+**Candidate for a separately authorized future integration: Network International’s UAE UPI merchant-acceptance route.** Evidence supports participating UAE merchants accepting UPI; it does not establish access for this traveller-side application.
+
+The implemented app remains a reference-cost/cash helper with a clearly labelled UI simulation. Provider onboarding, a supported integration channel, UPI-specific sandbox access and any costs require confirmation. No provider account, contract, sales enquiry or payment was submitted during this assessment, and no paid resources were created.
 
 ## Why this corridor
 
@@ -44,7 +48,7 @@ These questions have not been sent.
 
 ## Implementation gate and test plan
 
-Proceed only after the provider confirms the app’s role, corridor, free sandbox access and UPI-specific documentation. Credentials must go into server secret storage; never chat, frontend build values or source control.
+If a future real-payment integration is explicitly taken up, proceed only after the provider confirms the app’s role, corridor, free sandbox access and UPI-specific documentation. Credentials must go into server secret storage; never chat, frontend build values or source control.
 
 The proposed flow is: supported merchant QR → provider eligibility/order resolution → provider quote if available → explicit user approval in the authorized payment app → server-confirmed outcome. A redirect or app return alone must not mark a payment successful.
 
@@ -60,7 +64,7 @@ Tests must cover mismatched merchant/order/amount/currency, expired quotes, deni
 
 ## Practical result
 
-Public sources support the payment corridor. They do not establish a free self-service integration for this traveller-side app. The next external dependency is a provider response confirming eligibility, the exact API/SDK, approved sample QRs and UPI-specific sandbox access. Until then, keep the deployed cost estimator and avoid adding unverified compatibility labels or simulated payment success to its normal flow.
+Public sources support the payment corridor. They do not establish a free self-service integration for this traveller-side app. For a future real-payment integration, the external dependency would be a provider response confirming eligibility, the exact API/SDK, approved sample QRs and UPI-specific sandbox access. The current app’s explicitly labelled local simulation remains an educational feature; it is not evidence of real payment success or compatibility.
 
 
 ## Sandbox application follow-up

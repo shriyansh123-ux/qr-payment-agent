@@ -1,10 +1,20 @@
 # Travel QR Cost Estimator
 
-Understand a payment QR before opening your payment app: decode its amount, inspect a dated currency conversion, and explore how provider fees could affect the estimate.
+A travel cost and cash-payment helper: read supported QRs, understand reference currency conversions and fee assumptions, recognise unfamiliar denomination labels, and check returned cash change. A clearly labelled simulation demonstrates a proposed payment journey.
 
 **Educational prototype.** This app does not send money, verify merchants, detect fraud, or quote a final bank/card charge. Use synthetic data only.
 
 [Hosted demo](https://qr-payment-agent-demo.onrender.com/) · [Project explanation and presentation guide](docs/DEMO_GUIDE.md) · [Setup and deployment](DEPLOYMENT.md) · [Verification report](docs/VERIFICATION.md) · [What belongs in the app](docs/SCOPE.md) · [International payment feasibility](docs/PAYMENT_FEASIBILITY.md)
+
+## Why this project exists
+
+The idea began with a traveller’s question: “What does this foreign price mean in my own currency, what could fees add, and how do I check the cash or change?” The project brings QR amount reading, dated reference FX, explicit fee assumptions and local cash counting into one educational interface. It explores that problem; it does not claim validated demand or replace a bank’s final quote.
+
+## Current project status
+
+**Feature scope complete for the current educational/portfolio version, as of 25 October 2026.** Keep this version stable rather than treating more features or business onboarding as necessary to finish it. The latest deployed feature release is [PR #16](https://github.com/shriyansh123-ux/qr-payment-agent/pull/16); [dated verification evidence](docs/VERIFICATION.md) records the checks and limits.
+
+Before presenting, still complete a physical-phone camera/font check and a small usability walkthrough. These are pending manual checks, not claims of completed testing. Real payments and an optional QR-to-cash shortcut are future work, not requirements for this version.
 
 ## Features
 
@@ -17,6 +27,19 @@ Understand a payment QR before opening your payment app: decode its amount, insp
 - **Cash helper (THB, USD, EUR, JPY, INR, AED):** note/coin suggestions, boxed local numeral/word equivalents, expected change and a quantity counter for matching returned change. Runs in the page without a key.
 - **Private accounts:** sign in, scan synthetic text QR data, and retrieve or clear only your own saved summaries.
 - **Session handling:** tokens stay in React memory. Logout clears local account state; authenticated `401` responses return to sign-in and remove stale profile, history, results, and notices.
+
+## Try the app
+
+| Workspace | Access | What to demonstrate |
+| --- | --- | --- |
+| Cash helper | No key or sign-in | Choose one of six supported cash currencies, count notes/coins and check change |
+| QR demo | Existing private developer key | Read supported synthetic QR text or an image/photo and choose the home currency |
+| Currency converter | Same developer key | Choose From/To currencies and inspect the dated reference result |
+| Saved scans | Separately provisioned private account | Scan synthetic text QR data and retrieve user-scoped summaries |
+
+Start with **Cash helper → EUR**, enter bill **17.60** and handed-over amount **20**, then count one 2-euro coin and two 20-cent coins: the result should match **EUR 2.40**. No account or API key is needed for this flow. The payment simulation appears after a successful QR estimate and uses that workspace’s existing access; it asks for no additional credentials.
+
+Public registration remains disabled. Keep private credentials out of screenshots and presentations. Use the [presentation guide](docs/DEMO_GUIDE.md) for the complete walkthrough.
 
 ## Cash payments and numeral recognition
 
@@ -34,7 +57,7 @@ See [cash catalog, official sources and exclusions](docs/CASH_CURRENCIES.md), ch
 
 ## Hosted deployment
 
-The deployment verified on **24 October 2026** uses:
+The existing deployment was set up on **24 October 2026**, with feature verification through **25 October 2026**, and uses:
 
 | Component | Deployment |
 | --- | --- |
@@ -52,6 +75,8 @@ The hosted app does **not** offer public account creation. Obtain private demo a
 ```mermaid
 flowchart LR
     UI[React / Vite] --> API[FastAPI on Render]
+    UI --> Cash[Cash calculations and labels in the browser]
+    UI --> Simulation[Local payment-flow simulation]
     API --> Parser[QR parsing and validation]
     Parser --> FX[Dated reference FX]
     FX --> Rates[Frankfurter reference feeds]
@@ -146,7 +171,7 @@ Passwords use salted scrypt. Random bearer tokens expire after one hour; only th
 
 Queries are parameterized. Account history is scoped to the authenticated user and stores timestamp, currency and derived total, excluding raw QR text and payee identifiers. Full breakdowns and fee assumptions are not saved in summary history. Account emails, password hashes and token digests still require appropriate database protection.
 
-The shared QR demo's history is temporary browser state. Backend conversational sessions expire after 30 minutes of inactivity and are bounded to 256 per process; these differ from database-backed account sessions. Neither developer keys nor account tokens are saved in browser local/session storage.
+The shared QR demo's history is temporary browser state. Backend conversational sessions expire after 30 minutes of inactivity and are bounded to 256 per process; these differ from database-backed account sessions. Neither developer keys nor account tokens are saved in browser local/session storage. Cash inputs and simulation states also stay only in React memory; they are not transmitted as cash/payment records or saved to account history.
 
 ## Reference rates
 
@@ -158,7 +183,7 @@ Risk scoring, the recipient-verification badge, AI commentary, raw-JSON displays
 
 ## Verification and tests
 
-The latest feature release passed six GitHub Actions jobs: Python tests, React build/lint/dependency audit, live FX checks, Docker API smoke tests, bounded localhost load checks, and Chromium browser regressions. See the [verification report](docs/VERIFICATION.md) for dated evidence and limits.
+The latest feature release passed [six GitHub Actions jobs](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40176870431): Python tests, React build/lint/dependency audit and seven cash arithmetic tests, live FX checks, Docker API smoke tests, bounded localhost load checks, and Chromium browser regressions. See the [verification report](docs/VERIFICATION.md) for dated evidence and limits.
 
 Live checks included PostgreSQL table/query access, private sign-in, persisted history after sign-out/reload/sign-in, cross-account visibility and clearing isolation, token deletion on logout, and rejection of deliberately expired test tokens. The stale signed-in display was fixed and verified on the hosted app.
 
@@ -169,6 +194,7 @@ python -m pip install -r requirements-api.txt httpx==0.28.1 pytest==9.0.2 qrcode
 python -m pytest tests/ -q
 cd web
 npm ci
+node --test tests/cash.test.js
 npm run build
 npm run lint
 npm audit --audit-level=low
@@ -177,6 +203,15 @@ npm audit --audit-level=low
 The [GitHub Actions workflows](.github/workflows/) include browser setup, a local synthetic account database and bounded load checks. `integration/load_smoke.py` refuses non-localhost targets and submits 20 synthetic scans across four workers. Its measurements are not hosting-capacity guarantees. Do not load-test the hosted Free service.
 
 Manual conversion endpoints: `GET /api/currencies` returns currency codes and names; `POST /api/convert` requires the shared demo key and accepts `amount`, `from_currency` and `to_currency`. Amounts must be positive, no greater than 1,000,000,000,000 and have at most six decimal places. Reference results are rounded to two decimals; this is not provider-specific settlement rounding. Conversion requests are limited to 30/minute per client address using the existing best-effort limiter.
+
+## Final manual checks
+
+- [ ] On a physical phone, try Camera capture and the image/text fallbacks using synthetic QRs. Automated photo-upload tests do not prove handset camera behaviour.
+- [ ] Check Thai, Devanagari, Arabic-script and Japanese labels on the phone, including small-screen inputs and quantity counting.
+- [ ] Ask a few people to follow the QR, fee, cash-change and simulation flows without coaching; record confusing steps.
+- [ ] Rehearse or record the demonstration with private credentials hidden.
+
+These checks remain pending until actually performed. Optional improvements, such as carrying a scanned original amount into Cash helper, can wait for a later version.
 
 ## Remaining limitations
 
@@ -187,4 +222,4 @@ Manual conversion endpoints: `GET /api/currencies` returns currency codes and na
 - Free hosting/database quotas, cold starts, retention and backup arrangements need operator review before broader use.
 - No claim of a full penetration test, regulatory certification, global QR interoperability, or production readiness.
 
-The project is ready for a controlled portfolio demonstration with synthetic data. Public registration remains disabled.
+The implemented feature scope is complete for a controlled portfolio project with synthetic data. Finish the manual checks above before claiming device-level or usability validation. Public registration remains disabled. Payment-provider onboarding is not required for this educational version.

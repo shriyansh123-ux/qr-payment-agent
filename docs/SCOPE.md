@@ -1,6 +1,12 @@
 # Product scope: Travel QR Cost Estimator
 
-The original traveller problem is understanding a foreign merchant's amount in a familiar currency, estimating possible fees, and eventually paying through a supported provider. This application implements **cost estimation** and a clearly labelled, local-only **payment-flow simulation**. It does not determine payment-app eligibility, obtain a bank's final quote, or execute payment.
+The original traveller problem is understanding a foreign merchant's amount in a familiar currency, estimating possible fees, and eventually paying through a supported provider. This application implements **cost estimation**, **six-currency cash counting and numeral recognition**, and a clearly labelled, local-only **payment-flow simulation**. It does not determine payment-app eligibility, obtain a bank's final quote, or execute payment.
+
+## Current scope decision
+
+As of 25 October 2026, the implemented feature set is complete for the current educational/portfolio version. Keep it stable while checking the physical-phone camera, script rendering and usability. Those manual checks are not yet recorded as completed.
+
+Adding more features is optional. A QR-to-cash amount shortcut may be considered later; real payment routing and business/provider onboarding are deferred and are not required to present this project. The [provider assessment](PAYMENT_FEASIBILITY.md) is historical future-work research, not an active implementation checklist.
 
 ## Keep
 
