@@ -97,3 +97,15 @@ Free-plan quotas, cold starts, backup/retention arrangements, stronger identity 
 - Live browser verification confirmed the deployed home-currency selector and Camera input. An existing private synthetic account converted JPY 1,500 to a USD reference estimate, saved a USD summary and retrieved it after logout, reload and sign-in. Its older INR summaries retained their currency. This exercises actual PostgreSQL reads/writes beyond the configuration flag.
 - Health returned ok and registration remained disabled. The existing service was confirmed Free before release; no infrastructure or secret configuration was changed and no paid resources were created. The queried application-error window after deployment was empty.
 - Physical phone camera launch and real-world photo decoding were not tested on a handset. CI verified a generated QR photo through the same upload/decode path; native capture behavior still depends on the phone/browser. No payment provider was onboarded and no payment execution was added.
+
+
+## Local payment-flow simulation — 25 October 2026
+
+[PR #14](https://github.com/shriyansh123-ux/qr-payment-agent/pull/14) was merged as `79ff73dbd48fc9cb8ec32b8a8f6bc6b7e2d821ef`. Render deployment `dep-dber95cs728c73d65a10` reached live at 07:50:19 UTC.
+
+- Added an optional UI-only simulation after QR conversion: review reference amount and assumed fees, approve or cancel, show pending and a selected simulated success, decline or timeout. All stages explicitly say simulation. It opens no payment app, asks for no PIN/bank details and makes no provider requests.
+- Fee or estimate changes reset the simulation. Its state is held only in React memory, never recorded as a payment or saved account status. This is an educational project demonstration, not a provider sandbox or payment integration.
+- All six jobs passed in [CI run 40174110846](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40174110846). Chromium tests cover all outcomes, cancellation at review/pending, fee-change reset, invalid-fee removal, mobile overflow, zero simulation network requests, no browser storage and unchanged account-summary count.
+- Live verification used an existing synthetic private account. INR 100 plus 3% markup and INR 5 fixed fee showed INR 108; approval moved to pending, then the selected successful simulation explicitly reported that no money moved. The saved scan count did not increase during the simulation.
+- Health returned ok and account registration remained disabled. No backend, secret or infrastructure configuration was changed, no provider account was created, and no paid resources were provisioned. The queried post-release application-error window was empty.
+- README and scope explain how to demonstrate the flow and distinguish it from future real payment integration.
