@@ -60,7 +60,7 @@ The CI multi-QR UI fixture uses synthetic FX values to test rendering determinis
 
 This release is suitable for a controlled portfolio demonstration with synthetic data. It does not implement email verification, password recovery, MFA, mature session/device management, merchant verification, real payment execution, bank fee quotes or authoritative fraud signals. Email/recovery work was set aside when scope was narrowed to the core QR experience; no email service was provisioned.
 
-Free-plan quotas, cold starts, backup/retention arrangements, stronger identity controls and a broader security review remain operator responsibilities before wider use. Do not interpret a low caution level as a verified recipient, or the fee scenario as an actual provider quote. Do not run load tests against the hosted Free service.
+Free-plan quotas, cold starts, backup/retention arrangements, stronger identity controls and a broader security review remain operator responsibilities before wider use. The former caution feature has been removed. The fee scenario is not an actual provider quote. Do not run load tests against the hosted Free service.
 
 
 ## Manual From/To converter — 25 October 2026
@@ -85,3 +85,15 @@ Free-plan quotas, cold starts, backup/retention arrangements, stronger identity 
 - All six jobs passed in [CI run 40170844281](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40170844281). New assertions verify same-currency scans make no external requests and that removed labels/debug views are absent, while conversion, fees, image decoding, history and sessions still work.
 - Live Render deployment `dep-dbeqgv0ae00c73e0t210` reached live. A pre-existing synthetic account signed in, its older history remained readable, and a new INR 100 scan returned conversion details without recipient/risk/debug/locale features. The separate currency dropdowns loaded 159 entries during this check.
 - Health returned ok, registration remained disabled and the service remained on Free. The queried post-deployment error-log window was empty. No paid resources or database schema deletion was performed.
+
+
+## QR home currency and phone photos — 25 October 2026
+
+[PR #13](https://github.com/shriyansh123-ux/qr-payment-agent/pull/13) was merged as `92a65f9a93438ef0c71ac627852183b46f23595b` and deployed in Render release `dep-dbeqsolg1s2s73dghnrg`, live at 07:23:51 UTC.
+
+- QR text/image requests and private text scans accept an optional supported home currency. The encoded source amount/currency is preserved; the choice is per request and does not change another user's default. Each history row retains its target currency. Changing input clears the old result.
+- Camera mode uses native photo capture with a rear-camera preference. It requests no continuous video or microphone stream. Unsupported browsers can use the image picker or text entry. Client and server enforce the supported image formats and upload limits.
+- All six jobs passed in [CI run 40172397597](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40172397597), including 76 Python tests, React build/lint/audit, live FX, Docker/API, bounded local load and Chromium browser checks. New tests cover invalid/unsupported currency choices, original source preservation, image target propagation, account storage currency, catalog outages, camera photo upload and mixed-currency history.
+- Live browser verification confirmed the deployed home-currency selector and Camera input. An existing private synthetic account converted JPY 1,500 to a USD reference estimate, saved a USD summary and retrieved it after logout, reload and sign-in. Its older INR summaries retained their currency. This exercises actual PostgreSQL reads/writes beyond the configuration flag.
+- Health returned ok and registration remained disabled. The existing service was confirmed Free before release; no infrastructure or secret configuration was changed and no paid resources were created. The queried application-error window after deployment was empty.
+- Physical phone camera launch and real-world photo decoding were not tested on a handset. CI verified a generated QR photo through the same upload/decode path; native capture behavior still depends on the phone/browser. No payment provider was onboarded and no payment execution was added.
