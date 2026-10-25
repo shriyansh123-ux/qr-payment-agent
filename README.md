@@ -8,7 +8,8 @@ Understand a payment QR before opening your payment app: decode its amount, insp
 
 ## Features
 
-- **Text and image input:** amount-bearing UPI URIs, demo QR strings, and a restricted subset of EMV merchant-presented QR.
+- **Text, image and phone-photo input:** amount-bearing UPI URIs, demo QR strings, and a restricted subset of EMV merchant-presented QR.
+- **QR home-currency selection:** preserve the QR’s original amount/currency and choose the currency for the estimate. Demo text, images, phone photos and private text scans support this; saved summaries retain the actual target currency.
 - **Manual currency converter:** separate From and To blocks, an amount input, provider-supported currency dropdowns and a swap button. Choose any listed pair; a fresh reference rate must still be available.
 - **Conversion details:** original amount, reference conversion, exchange rate, publication date and source for each QR, including multi-QR results.
 - **Fee exploration:** enter a percentage markup and fixed fee to see their illustrative impact. These assumptions stay in the page and are not saved to account history.
@@ -55,11 +56,15 @@ Docker builds React and serves the frontend and API from one origin. Gradio and 
 
 Account mode supports **text scans**; image uploads remain in the QR demo. Dynamic UPI without an amount and arbitrary national QR schemes are unsupported. An EMV checksum detects accidental modification; it does not verify merchant identity or certify payment-scheme compatibility.
 
+## Scan a phone photo
+
+In **QR demo**, enter the private demo key, choose **Your home currency**, then open **Camera** and select **Take QR photo**. Supported mobile browsers offer the rear camera; desktop or unsupported browsers may open a file picker. Capture a clear, synthetic QR and select **Estimate cost**. This is photo capture followed by image decoding, not continuous live scanning. No microphone or background camera stream is requested. Only the selected image is uploaded; the API deletes its temporary file after processing. PNG/JPEG/WebP, 3 MiB and existing dimension limits apply; use a lower-resolution photo when needed. **Image** and **Text** remain available if capture is unavailable or permission is declined.
+
 ## Try the result breakdown
 
 For manual conversion, open **Currency converter**, enter the same private demo key used in the QR workspace, choose **From currency** and **To currency**, enter an amount and select **Convert**. Results show the reference rate, date and source. **Swap currencies** reverses the selected pair. Changing inputs clears the previous estimate.
 
-The dropdown catalog is fetched from Frankfurter, cached for one hour and filtered to recent observations; historical-only entries and precious-metal/reference units are excluded. If the catalog or a fresh pair rate is unavailable, the app reports an error. This manual converter does not alter QR amounts, move money or save conversion history. QR scans continue to use their encoded source currency and the configured home currency (INR in this deployment).
+The dropdown catalog is fetched from Frankfurter, cached for one hour and filtered to recent observations; historical-only entries and precious-metal/reference units are excluded. If the catalog or a fresh pair rate is unavailable, the app reports an error. This manual converter does not alter QR amounts, move money or save conversion history. QR scans preserve their encoded source currency. Select **Your home currency** to change the reference target; leaving it at default uses the configured home currency (INR on this deployment). Changing the selection clears the previous result, and each history row keeps its own currency.
 
 1. Run locally, or use authorized private access to the hosted demo.
 2. Scan `upi://pay?pa=merchant@upi&am=100&cu=INR`.

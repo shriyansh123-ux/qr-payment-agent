@@ -237,4 +237,7 @@ body {
 .conversionBlock option { background: #101c30; color: #e7eefc; }
 .convertedAmount { display: block; font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 750; color: #b2f2df; overflow-wrap: anywhere; }
 .conversionDetails { margin: 22px 0; padding: 18px; border-radius: 14px; background: rgba(30,130,120,.15); line-height: 1.6; overflow-wrap: anywhere; }
+.homeCurrency { margin: 24px 0; max-width: 580px; }
+.homeCurrency option { background: #101c30; color: #e7eefc; }
+button:disabled { cursor: not-allowed; opacity: .6; }
 @media (max-width: 640px) { .conversionBlocks { grid-template-columns: 1fr; } }

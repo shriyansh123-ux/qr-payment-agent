@@ -4,14 +4,16 @@ import { scanImage, scanText, clearHistory } from "./lib/api";
 import AccountPanel from "./components/AccountPanel";
 import ScanInsights from "./components/ScanInsights";
 import CurrencyConverter from "./components/CurrencyConverter";
+import HomeCurrency from "./components/HomeCurrency";
+import QRPhoto from "./components/QRPhoto";
 
 const USER_ID = "user-123";
 
-function formatINR(x) {
+function formatMoney(x, currency) {
   if (x === null || x === undefined || x === "") return "Unavailable";
   const n = Number(x);
   if (!Number.isFinite(n)) return "Unavailable";
-  return `₹${n.toFixed(2)}`;
+  return `${currency} ${n.toFixed(2)}`;
 }
 
 function extractTotalINR(result) {
@@ -33,6 +35,7 @@ export default function App() {
   const [mode, setMode] = useState("text"); // "text" | "image"
   const [qrText, setQrText] = useState("QR:JP:JPY:1500");
   const [imageFile, setImageFile] = useState(null);
+  const [homeCurrency, setHomeCurrency] = useState("");
 
   const [sessionId, setSessionId] = useState(""); // backend will return real session id
 
@@ -42,6 +45,11 @@ export default function App() {
   const [error, setError] = useState("");
 
   const totalINR = useMemo(() => extractTotalINR(result), [result]);
+  const resultCurrency = result?.home_currency || result?.fx_result?.to_currency || "INR";
+
+  function changeMode(next) {
+    setMode(next); setImageFile(null); setResult(null); setError("");
+  }
 
   function pushHistoryRow(inputLabel, resObj) {
     const t = new Date();
@@ -51,6 +59,7 @@ export default function App() {
       time,
       input: inputLabel,
       total: extractTotalINR(resObj),
+      currency: resObj.home_currency || resObj.fx_result?.to_currency || "INR",
     };
 
     setHistory((prev) => [row, ...prev]);
@@ -72,6 +81,7 @@ export default function App() {
           user_id: USER_ID,
           session_id: sessionId,
           qr_payload: payload,
+          home_currency: homeCurrency,
         });
         setSessionId(res.session_id || sessionId);
         setResult(res);
@@ -83,10 +93,11 @@ export default function App() {
           user_id: USER_ID,
           session_id: sessionId,
           file: imageFile,
+          home_currency: homeCurrency,
         });
         setSessionId(res.session_id || sessionId);
         setResult(res);
-        pushHistoryRow("QR image", res);
+        pushHistoryRow(mode === "camera" ? "Camera photo" : "QR image", res);
       }
     } catch (e) {
       const msg = e?.message || "Failed to translate";
@@ -116,59 +127,56 @@ export default function App() {
         </p>
 
         <div className="tabs" role="group" aria-label="Workspace">
-          <button type="button" className={`tab ${workspace === "demo" ? "active" : ""}`} onClick={() => setWorkspace("demo")}>QR demo</button>
-          <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} onClick={() => setWorkspace("account")}>Saved scans</button>
-          <button type="button" className={`tab ${workspace === "converter" ? "active" : ""}`} onClick={() => setWorkspace("converter")}>Currency converter</button>
+          <button type="button" className={`tab ${workspace === "demo" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("demo")}>QR demo</button>
+          <button type="button" className={`tab ${workspace === "account" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("account")}>Saved scans</button>
+          <button type="button" className={`tab ${workspace === "converter" ? "active" : ""}`} disabled={loading} onClick={() => setWorkspace("converter")}>Currency converter</button>
         </div>
         {workspace === "account" ? <AccountPanel />
           : workspace === "converter" ? <CurrencyConverter apiKey={apiKeyInput} onApiKeyChange={setApiKeyInput} /> : <>
         <div className="card">
           <label className="label" htmlFor="api-key">Local demo API key (required)</label>
-          <input id="api-key" className="textarea" type="password" autoComplete="off" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Enter QR_API_KEY from your backend environment" />
+          <input id="api-key" className="textarea" type="password" autoComplete="off" disabled={loading} value={apiKeyInput} onChange={(e) => { setApiKeyInput(e.target.value); setResult(null); }} placeholder="Enter QR_API_KEY from your backend environment" />
           <p className="hint">Demo key held in this page only; not saved to browser storage. Use synthetic QR payloads, never real payment data.</p>
+          <HomeCurrency value={homeCurrency} disabled={loading} onChange={value => {
+            setHomeCurrency(value); setResult(null); setError("");
+          }} />
           <div className="tabs">
             <button
               className={`tab ${mode === "text" ? "active" : ""}`}
-              onClick={() => setMode("text")}
+              disabled={loading} onClick={() => changeMode("text")}
             >
               Text
             </button>
             <button
               className={`tab ${mode === "image" ? "active" : ""}`}
-              onClick={() => setMode("image")}
+              disabled={loading} onClick={() => changeMode("image")}
             >
               Image
             </button>
+            <button className={`tab ${mode === "camera" ? "active" : ""}`} disabled={loading}
+              onClick={() => changeMode("camera")}>Camera</button>
           </div>
 
           {mode === "text" ? (
             <div className="form">
-              <label className="label">QR Text</label>
+              <label className="label" htmlFor="qr-text">QR Text</label>
               <textarea
-                className="textarea"
+                className="textarea" id="qr-text" disabled={loading}
                 value={qrText}
-                onChange={(e) => setQrText(e.target.value)}
+                onChange={(e) => { setQrText(e.target.value); setResult(null); setError(""); }}
                 rows={3}
                 placeholder="QR:JP:JPY:1500"
               />
               <div className="hint">Tip: You can paste multiple: QR:JP:JPY:1500,QR:US:USD:12</div>
             </div>
           ) : (
-            <div className="form">
-              <label className="label">QR Image</label>
-              <input
-                className="file"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-              />
-              <div className="hint">Selected: {imageFile ? imageFile.name : "none"}</div>
-            </div>
+            <QRPhoto key={mode} camera={mode === "camera"} file={imageFile} disabled={loading}
+              onChange={file => { setImageFile(file); setResult(null); setError(""); }} />
           )}
 
           <div className="actions">
             <button className="btnPrimary" onClick={onTranslate} disabled={loading}>
-              {loading ? "Translating..." : "Translate"}
+              {loading ? "Estimating..." : "Estimate cost"}
             </button>
 
             <button className="btnSecondary" onClick={onClearHistory} disabled={loading}>
@@ -184,7 +192,7 @@ export default function App() {
           {!result && <p className="hintText">Scan a QR to see its reference conversion.</p>}
 
           <div className="resultRow">
-            <div className="total">Reference estimate (before fees): <span className="money">{formatINR(totalINR)}</span></div>
+            <div className="total">Reference estimate (before fees): <span className="money">{formatMoney(totalINR, resultCurrency)}</span></div>
           </div>
 
           <ScanInsights result={result} />
@@ -201,7 +209,7 @@ export default function App() {
                 <tr>
                   <th>Time</th>
                   <th>Input</th>
-                  <th>Total (INR)</th>
+                  <th>Reference total</th>
                 </tr>
               </thead>
               <tbody>
@@ -214,7 +222,7 @@ export default function App() {
                     <tr key={idx}>
                       <td className="mono">{r.time}</td>
                       <td className="mono">{r.input}</td>
-                      <td className="mono">{formatINR(r.total)}</td>
+                      <td className="mono">{formatMoney(r.total, r.currency)}</td>
                     </tr>
                   ))
                 )}

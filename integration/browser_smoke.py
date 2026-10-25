@@ -27,10 +27,10 @@ def run():
                 page.locator("#api-key").fill(KEY)
                 page.locator("textarea").fill(PAYLOAD)
                 with page.expect_response(lambda r: "/api/scan-text" in r.url and r.request.method == "POST") as scan_response:
-                    page.get_by_role("button", name="Translate", exact=True).click()
+                    page.get_by_role("button", name="Estimate cost", exact=True).click()
                 scan = scan_response.value
                 assert scan.ok, f"Browser-to-API text scan failed: status={scan.status}, error={scan.text()[:300]}"
-                expect(page.locator(".money")).to_have_text("₹100.00", timeout=10000)
+                expect(page.locator(".money")).to_have_text("INR 100.00", timeout=10000)
                 expect(page.locator(".demoHistory tbody tr")).to_have_count(1)
                 expect(page.get_by_text("Text QR (hidden)")).to_be_visible()
                 assert PAYLOAD not in page.locator("tbody").inner_text()
@@ -38,9 +38,40 @@ def run():
 
                 page.get_by_role("button", name="Image", exact=True).click()
                 page.locator("input[type=file]").set_input_files(str(qr_image))
-                page.get_by_role("button", name="Translate", exact=True).click()
-                expect(page.locator(".money")).to_have_text("₹100.00", timeout=30000)
+                page.get_by_role("button", name="Estimate cost", exact=True).click()
+                expect(page.locator(".money")).to_have_text("INR 100.00", timeout=30000)
                 expect(page.locator(".demoHistory tbody tr")).to_have_count(2)
+
+                # Camera capture is an explicit native file action; feed a synthetic photo.
+                page.get_by_role("button", name="Camera", exact=True).click()
+                expect(page.get_by_label("Take QR photo", exact=True)).to_have_attribute("capture", "environment")
+                page.get_by_label("Take QR photo", exact=True).set_input_files(str(qr_image))
+                page.get_by_role("button", name="Estimate cost", exact=True).click()
+                expect(page.locator(".money")).to_have_text("INR 100.00", timeout=30000)
+                expect(page.locator(".demoHistory tbody tr")).to_have_count(3)
+                page.get_by_role("button", name="Text", exact=True).click()
+                expect(page.locator(".scanInsights")).to_have_count(0)
+
+                # Exercise target selection and mixed-currency history without live rate dependency.
+                def qr_catalog(route):
+                    route.fulfill(json={"currencies": [{"code": "INR", "name": "Indian Rupee"},
+                                                       {"code": "USD", "name": "US Dollar"}]})
+                page.route("**/api/currencies", qr_catalog)
+                page.reload()
+                page.locator("#api-key").fill(KEY)
+                page.get_by_label("Your home currency", exact=True).select_option("USD")
+                page.get_by_label("QR Text", exact=True).fill("QR:US:USD:12")
+                # Explicit currency validation uses the real backend catalog; same-currency needs no FX.
+                page.get_by_role("button", name="Estimate cost", exact=True).click()
+                expect(page.locator(".money")).to_have_text("USD 12.00", timeout=30000)
+                page.get_by_label("Your home currency", exact=True).select_option("")
+                expect(page.locator(".scanInsights")).to_have_count(0)
+                page.get_by_label("QR Text", exact=True).fill(PAYLOAD)
+                page.get_by_role("button", name="Estimate cost", exact=True).click()
+                expect(page.locator(".money")).to_have_text("INR 100.00", timeout=30000)
+                expect(page.locator(".demoHistory tbody")).to_contain_text("USD 12.00")
+                expect(page.locator(".demoHistory tbody")).to_contain_text("INR 100.00")
+                page.unroute("**/api/currencies", qr_catalog)
 
                 page.get_by_role("button", name="Clear History").click()
                 expect(page.get_by_text("No history yet.")).to_be_visible()
@@ -56,7 +87,7 @@ def run():
                 page.get_by_role("button", name="Sign in", exact=True).last.click()
                 expect(page.get_by_text("Signed in:")).to_be_visible()
                 page.locator("#account-qr").fill(PAYLOAD)
-                page.get_by_role("button", name="Translate and save summary").click()
+                page.get_by_role("button", name="Estimate and save summary").click()
                 expect(page.get_by_text("Stored summary history")).to_be_visible()
                 expect(page.locator(".accountTable tbody tr")).to_have_count(1, timeout=15000)
                 assert "merchant@upi" not in page.locator(".accountTable").inner_text()
@@ -79,7 +110,7 @@ def run():
 
                 # Exercise per-QR conversion details without relying on a live FX provider.
                 def multi_scan(route):
-                    route.fulfill(json={"multiple": True, "total_home": 300, "items": [
+                    route.fulfill(json={"multiple": True, "total_home": 300, "home_currency": "INR", "items": [
                         {"qr_info": {"amount": 100, "raw_fields": {"scheme": "UPI"}},
                          "fx_result": {"from_currency": "INR", "to_currency": "INR",
                                        "rate": 1, "total_home": 100, "rate_date": "2026-10-23",
@@ -91,7 +122,7 @@ def run():
                     ]})
 
                 page.route("**/api/account/scan-text", multi_scan)
-                page.get_by_role("button", name="Translate and save summary").click()
+                page.get_by_role("button", name="Estimate and save summary").click()
                 expect(insights.locator(".scanBreakdown")).to_have_count(2)
                 expect(insights.get_by_text("synthetic-test-source", exact=True)).to_be_visible()
                 expect(insights.get_by_text("2026-10-23", exact=True)).to_have_count(2)
@@ -122,14 +153,14 @@ def run():
                 # Non-authentication failures must preserve the current session.
                 sign_in()
                 page.route("**/api/account/scan-text", unavailable)
-                page.get_by_role("button", name="Translate and save summary").click()
+                page.get_by_role("button", name="Estimate and save summary").click()
                 expect(page.get_by_role("alert")).to_have_text("Temporarily unavailable")
                 expect(page.get_by_role("button", name="Sign out")).to_be_enabled()
                 expect(page.get_by_text("Signed in for this tab. Use synthetic QR data only.")).to_have_count(0)
                 page.unroute("**/api/account/scan-text", unavailable)
 
                 # Every protected action must clear profile, history and results on 401.
-                for endpoint, button in [("scan-text", "Translate and save summary"),
+                for endpoint, button in [("scan-text", "Estimate and save summary"),
                                          ("clear-history", "Clear saved history")]:
                     if endpoint == "clear-history":
                         sign_in()
