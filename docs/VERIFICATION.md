@@ -1,6 +1,6 @@
 # Verification summary
 
-Documentation updated: **25 October 2026**. The checks below were completed on **24 October 2026**; they are a dated record, not continuous monitoring or a full security audit. No credentials, database URLs, token values, or private login files are included.
+Documentation updated: **25 October 2026**. The checks below were completed on **24–25 October 2026**; they are a dated record, not continuous monitoring or a full security audit. No credentials, database URLs, token values, or private login files are included.
 
 ## Deployment and database
 
@@ -59,3 +59,15 @@ The CI multi-QR UI fixture uses synthetic FX values to test rendering determinis
 This release is suitable for a controlled portfolio demonstration with synthetic data. It does not implement email verification, password recovery, MFA, mature session/device management, merchant verification, real payment execution, bank fee quotes or authoritative fraud signals. Email/recovery work was set aside when scope was narrowed to the core QR experience; no email service was provisioned.
 
 Free-plan quotas, cold starts, backup/retention arrangements, stronger identity controls and a broader security review remain operator responsibilities before wider use. Do not interpret a low caution level as a verified recipient, or the fee scenario as an actual provider quote. Do not run load tests against the hosted Free service.
+
+
+## Manual From/To converter — 25 October 2026
+
+[PR #11](https://github.com/shriyansh123-ux/qr-payment-agent/pull/11) was merged and deployed as commit `56206228413fd32c164319870f741ab1c5b618fb`.
+
+- Added a separate Currency converter workspace with From/To currency dropdowns, amount entry and swap.
+- The live provider catalog loaded 159 recent currencies during verification. This count is dated and may change. Metals/reference units and historical-only entries are excluded; individual pair rates must still pass the existing freshness checks.
+- Verified real USD-to-EUR and EUR-to-USD reference conversions. The deployed interface displayed the rate, date and source; swapping cleared the old estimate.
+- All six jobs passed in [CI run 40169035239](https://github.com/shriyansh123-ux/qr-payment-agent/actions/runs/40169035239). New backend tests cover catalog filtering/caching, authentication, rounding, same-currency conversion, unsupported currencies, amount validation and provider failures. Browser checks cover list retry, both dropdowns, swap, stale-result cleanup, conversion errors and mobile overflow.
+- Render deployment `dep-dbeq2khsrm7s73cvkaug` reached live. Health returned ok; account registration remained disabled. The queried post-release error-log window contained no application error entries.
+- The converter reuses the existing private demo key and does not save conversion history, modify QR-encoded currencies, initiate payments, or provision paid resources. README instructions were updated with the feature.
