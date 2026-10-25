@@ -79,6 +79,23 @@ async function accountRequest(path, { method = "GET", token = "", body } = {}) {
 }
 
 export const accountStatus = () => accountRequest("/status");
+
+export async function getCurrencies() {
+  const response = await fetch(`${API_BASE}/api/currencies`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Currency list unavailable.");
+  return data;
+}
+
+export async function convertCurrency({ apiKey, ...body }) {
+  const response = await fetch(`${API_BASE}/api/convert`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Check the amount and selected currencies.");
+  return data;
+}
 export const accountRegister = (email, password) =>
   accountRequest("/register", { method: "POST", body: { email, password } });
 export const accountLogin = (email, password) =>
