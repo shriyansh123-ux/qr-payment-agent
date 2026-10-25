@@ -1,113 +1,160 @@
 # QR Payment Agent — Cross-Currency QR Reference Translator
 
-**Status: educational prototype, not a payment processor or fraud-verification system.** The app does not send money, authenticate merchants, or quote final bank/card charges.
+Understand a payment QR before opening your payment app: decode its amount, inspect a dated currency conversion and caution reasons, and explore how provider fees could affect the estimate.
 
-The repository has a **React/Vite frontend**, **FastAPI backend**, a **standalone Gradio demo**, and a CLI. It demonstrates QR input parsing, indicative currency conversion, explainable transaction caution flags, and an optional Gemini explanation.
+**Educational prototype.** This app does not send money, verify merchants, detect fraud, or quote a final bank/card charge. Use synthetic data only.
+
+[Hosted demo](https://qr-payment-agent-demo.onrender.com/) · [Setup and deployment](DEPLOYMENT.md) · [Verification report](docs/VERIFICATION.md)
+
+## Features
+
+- **Text and image input:** amount-bearing UPI URIs, demo QR strings, and a restricted subset of EMV merchant-presented QR.
+- **Explainable results:** original amount, reference conversion, exchange rate, publication date, source, and specific caution reasons for each QR, including multi-QR results.
+- **Fee exploration:** enter a percentage markup and fixed fee to see their illustrative impact. These assumptions stay in the page and are not saved to account history.
+- **Private accounts:** sign in, scan synthetic text QR data, and retrieve or clear only your own saved summaries.
+- **Session handling:** tokens stay in React memory. Logout clears local account state; authenticated `401` responses return to sign-in and remove stale profile, history, results, and notices.
+- **Optional AI explanation:** Gemini explains computed results; it does not calculate exchange rates. Core calculations work without a Gemini credential.
+
+## Hosted deployment
+
+The deployment verified on **24 October 2026** uses:
+
+| Component | Deployment |
+| --- | --- |
+| Web app and API | Existing Render Free Docker service, `qr-payment-agent-demo` |
+| Durable account database | Neon Free PostgreSQL project, `qr-payment-agent-db`, AWS Ohio |
+| Public registration | Disabled: `QR_ALLOW_REGISTRATION=false` |
+| Access | Developer key for the QR demo; separately provisioned private accounts for the account workspace |
+
+No paid resources were provisioned during setup. Free-plan availability and quotas can change; inspect provider dashboards before creating resources or changing plans. Inactivity can cause cold starts. This is not an uptime or capacity guarantee.
+
+The hosted app does **not** offer public account creation. Obtain private demo access from the project owner; credentials are never published in this repository.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[React / Vite] --> API[FastAPI on Render]
+    API --> Parser[QR parsing and validation]
+    Parser --> FX[Dated reference FX]
+    Parser --> Caution[Explainable caution heuristics]
+    FX --> Rates[Frankfurter reference feeds]
+    API --> DB[(Neon: private accounts and summaries)]
+    API -. optional explanation .-> Gemini[Gemini]
+```
+
+Docker builds React and serves the frontend and API from one origin. Gradio and the CLI remain separate local interfaces. Redis is optional; the deployed architecture does not require a Redis resource.
 
 ## Supported inputs
 
-- Demo format: `QR:JP:JPY:1500`. Multiple demo strings can be separated with commas or newlines.
-- Amount-bearing UPI payment URI: `upi://pay?pa=merchant@upi&am=100&cu=INR`.
-- PNG, JPEG or WebP QR images up to 3 MiB and 12 megapixels (FastAPI upload limit).
+| Input | Synthetic example / scope |
+| --- | --- |
+| Demo QR | `QR:JP:JPY:1500` |
+| Multiple demo QRs | `QR:JP:JPY:1500,QR:US:USD:12`, or newline-separated values |
+| Amount-bearing UPI | `upi://pay?pa=merchant@upi&am=100&cu=INR` |
+| EMV merchant QR | Restricted amount-bearing subset with mandatory fields, TLV validation and CRC-16 checksum |
+| Images in QR demo | PNG, JPEG or WebP; API limits: 3 MiB, 12 megapixels, and 5,000 pixels per dimension |
 
-This is **not** a generic decoder for every country's payment QR. EMV merchant-presented formats, dynamic no-amount UPI QR, and other schemes are not fully implemented. Demo QR strings have **no validated merchant identifier**; a payee address extracted from UPI is **unverified**.
+Account mode supports **text scans**; image uploads remain in the QR demo. Dynamic UPI without an amount and arbitrary national QR schemes are unsupported. An EMV checksum detects accidental modification; it does not verify merchant identity or certify payment-scheme compatibility.
+
+## Try the result breakdown
+
+1. Run locally, or use authorized private access to the hosted demo.
+2. Scan `upi://pay?pa=merchant@upi&am=100&cu=INR`.
+3. Inspect **Understand this QR**: INR 100 original and reference amounts, a same-currency rate of 1, and an explicitly unverified recipient.
+4. Open **Explore provider fees**. Enter 3% markup and INR 5 fixed fee.
+5. The illustrated total is **INR 108**, including **INR 8** added cost.
+
+Formula: `reference amount × (1 + markup / 100) + fixed fee`. For multiple QRs converted to the same currency, the percentage applies to the combined reference amount and the fixed fee is added **once**. This is not a per-transaction bank quote. Provider rounding, settlement rates and taxes may differ. Actual fees remain **not quoted**.
 
 ## Local setup
 
-Requires Python 3.13 and Node.js 22 or compatible versions.
+Use Python 3.13 and Node.js 22, matching CI.
 
-1. Clone the repository and create a virtual environment.
-2. Install API dependencies: `pip install -r requirements-api.txt`.
-3. Generate a random development key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Store it locally in the backend's `QR_API_KEY` environment variable (at least 24 characters). **Never commit a key.**
-4. Start the backend:
-   - PowerShell: `$env:QR_API_KEY="YOUR_GENERATED_KEY"; python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000`
-   - macOS/Linux: `QR_API_KEY="YOUR_GENERATED_KEY" python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000`
-5. In a second terminal, run `cd web`, `npm ci`, then `npm run dev`.
-6. Open `http://127.0.0.1:5173/` and enter the same local developer key into the form.
+1. Clone the repository and create/activate a Python virtual environment.
+2. Run `python -m pip install -r requirements-api.txt`.
+3. Generate a random development key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+4. Set it as the backend's `QR_API_KEY` environment variable, then run:
 
-The app uses an `X-API-Key` header for this **local, single-user demo**. A shared secret entered into a browser **cannot securely authenticate multiple internet users**. Keep both interfaces on your local trusted network.
+   ```text
+   python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8000
+   ```
 
-For the separate Gradio UI, install `pip install -r requirements.txt` and run `python -m src.ui.app`. The Gradio path calls the orchestrator directly and does **not** enforce the API's authentication. Do not expose Gradio publicly. CLI: `python -m src.main`.
+5. In a second terminal, run `cd web`, `npm ci`, and `npm run dev`.
+6. Open `http://127.0.0.1:5173/` and enter the same developer key in the QR demo.
 
-## Calculations, risk flags, AI
+See [DEPLOYMENT.md](DEPLOYMENT.md) for PowerShell and Docker instructions. Never commit keys or put secrets in `VITE_` variables: frontend build values are public.
 
-The FX agent uses [Frankfurter](https://frankfurter.dev/) **dated reference rates**, first from its blended v2 feed and then (only if needed) from its ECB-backed v1 reference feed. Both enforce positive rates and publication dates no more than seven days old; neither is an executed payment-provider exchange rate. It returns its provider and observation date. It rejects unavailable or stale data rather than silently using made-up currency rates.
+For **local-only** account development, use an isolated SQLite file: `QR_DATABASE_URL=sqlite:////absolute/path/qr_accounts.sqlite`, with `QR_ALLOW_REGISTRATION=true`. Register synthetic users locally. Keep hosted registration disabled; SQLite on an ephemeral hosted filesystem is unsuitable for durable accounts.
 
-**Provider FX markups, card fees, payment network fees, and final payable amounts are unknown.** The response's `total_home` is the *reference conversion before provider fees*; nominal fee fields are placeholders with `fee_status: not_quoted`. It must not be represented as a final charge.
+For Gradio, install `requirements.txt` and run `python -m src.ui.app`. It calls the orchestrator directly without FastAPI authentication; keep it local. CLI: `python -m src.main`.
 
-Risk scores are simple **caution heuristics**, primarily based on the USD-equivalent size and whether the purported merchant is identified. They are not fraud probabilities. If an additional USD conversion rate is unavailable, the transaction-size risk is `not_assessed`. Previously encountered payees and country codes alone do not prove safety.
+## Configuration
 
-Gemini is optional: supply `GEMINI_API_KEY` only in a trusted backend environment. Without it the orchestrator uses a deterministic explanation. The model is never responsible for the numerical rate calculation. Prompts avoid raw QR/payment addresses where possible.
+| Variable | Purpose |
+| --- | --- |
+| `QR_API_KEY` | Shared developer key; at least 24 characters; never publish it |
+| `QR_DATABASE_URL` | SQLite URL locally, or TLS-enabled PostgreSQL URL for hosted accounts; server secret only |
+| `QR_ALLOW_REGISTRATION` | Defaults to `false`; keep `false` on the hosted deployment |
+| `PORT` | Container listening port; preserve the existing Render setting |
+| `GEMINI_API_KEY` | Optional backend-only AI credential |
+| `REDIS_URL` | Optional shared throttle counters; no new resource is required |
+| `QR_CORS_ORIGINS` | Explicit frontend origins when using separate origins |
+| `VITE_API_BASE` | Optional public API-origin override; empty for same-origin hosting; never a secret |
 
-## Tests and build
+Store the Neon connection string privately in Render as `QR_DATABASE_URL`, never in source, screenshots or examples. Preserve `QR_API_KEY` and `PORT` when updating database settings. See the [Neon connection procedure](DEPLOYMENT.md#connecting-neon-postgresql-to-the-existing-render-service).
 
-The repair pull request runs GitHub Actions jobs for:
-- `python -m pytest tests/ -q` — offline tests, including generated real QR images and upload errors.
-- `npm ci && npm run build && npm run lint && npm audit --audit-level=low` in `web/`.
-- A live reference FX API request.
-- Docker API startup and authenticated/unauthenticated smoke tests.
-- Playwright/Chromium end-to-end local text scan, image scan, result display, and clear-history flow.
+## Accounts, privacy and sessions
 
-Run locally: `python -m pytest tests/ -q` (requires `pytest`, `httpx`, and `qrcode` in addition to API requirements).
+Account endpoints use bearer authentication independently of the shared demo key:
 
-The Dockerfile now builds the React frontend and serves it together with FastAPI at one origin; Gradio remains a separate local interface.
+- `POST /api/account/register` — only when registration is explicitly enabled.
+- `POST /api/account/login` and `POST /api/account/logout`.
+- `GET /api/account/me` and `GET /api/account/history`.
+- `POST /api/account/scan-text` and `POST /api/account/clear-history`.
+- `GET /api/account/status` — configuration discovery only; it does **not** prove database connectivity.
 
-## Limitations / before production
+Passwords use salted scrypt. Random bearer tokens expire after one hour; only their SHA-256 digests are stored. Logout removes the current token. Browser reload clears the local token but does not itself revoke the server token. Failed logout clears local credentials and warns that server revocation was not confirmed.
 
-- Replace the shared development API key with a real identity provider and per-user authorization.
-- Add quotas/rate limiting, CSRF/abuse protection as appropriate, durable isolated user sessions, and secure payment-data handling.
-- Integrate verified merchant identities, scheme-specific QR validators, bank/provider fee quotes, and authoritative risk signals if claiming real-world applicability.
-- Independently confirm the payment recipient before authorizing a transaction in a trusted payment application.
-- Review tracked historical development artifacts and any repository history for sensitive data. A `.gitignore` does not remove already committed files.
-- Existing `src/persistence/history_store.py` is not wired to the React history view; the backend's session history is in memory and the React history table is browser state.
+Queries are parameterized. Account history is scoped to the authenticated user and stores timestamp, currency, derived total and caution level, excluding raw QR text and payee identifiers. Full breakdowns and fee assumptions are not saved in summary history. Account emails, password hashes and token digests still require appropriate database protection.
 
-This project should be presented as an engineering prototype, not as a production-ready global QR-payment translator.
+The shared QR demo's history is temporary browser state. Backend conversational sessions expire after 30 minutes of inactivity and are bounded to 256 per process; these differ from database-backed account sessions. Current-result raw JSON can contain parsed QR data. Neither developer keys nor account tokens are saved in browser local/session storage.
 
+## Rates and caution boundaries
 
-## Deployment
+The FX agent uses [Frankfurter](https://frankfurter.dev/) dated reference rates: a blended v2 feed with an ECB-backed v1 fallback. It validates positive rates and publication dates no more than seven days old, rejecting future dates and unavailable/stale data. Same-currency conversion uses rate 1 and the current date. Neither feed is an executed payment-provider rate.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for Windows PowerShell, Docker, and manually configured Render hosting instructions, environment variables, and security limitations.
+`total_home` is the reference conversion **before fees**. Backend fee fields are placeholders with `fee_status: not_quoted`; the UI calculator is a separate user-entered scenario.
 
+Caution levels use transparent heuristics, primarily USD-equivalent transaction size and whether a claimed payee identifier exists. `not_assessed` means transaction-size assessment was unavailable, not that the QR is safe. Repeated payees, country codes and low caution levels do not verify a merchant or establish a fraud probability.
 
-## Step 4 — Privacy and reliability hardening
+## Verification and tests
 
-- Temporary backend sessions now expire after 30 minutes of inactivity, with at most 256 sessions per process. These are **single-process safeguards**, not durable multi-user isolation.
-- The React app no longer stores the developer API key in `sessionStorage`; it stays in component memory until page reload. API keys still pass from the browser to the backend and **are not production-grade authentication**.
-- React history no longer retains raw pasted QR strings or image filenames, and limits stored raw details to computed estimates and caution data. Clicking **Show Raw JSON** for the current result still exposes the parsed transaction in this browser session.
-- Gemini's API key is now sent in the `x-goog-api-key` HTTP header, not as a query string. Error messages no longer include raw provider response bodies.
-- These steps **do not** provide verified merchant identity, multi-user login, strong DDoS protection, or secure persistent storage. Treat hosted use as a synthetic-data educational demo.
+The latest feature release passed six GitHub Actions jobs: Python tests, React build/lint/dependency audit, live FX checks, Docker API smoke tests, bounded localhost load checks, and Chromium browser regressions. See the [verification report](docs/VERIFICATION.md) for dated evidence and limits.
 
-## Free-tier enhancement: EMV QR and API throttling
+Live checks included PostgreSQL table/query access, private sign-in, persisted history after sign-out/reload/sign-in, cross-account visibility and clearing isolation, token deletion on logout, and rejection of deliberately expired test tokens. The stale signed-in display was fixed and verified on the hosted app.
 
-- Supports a **restricted subset** of EMVCo merchant-presented QR with a provided amount, valid TLV structure, mandatory fields, and CRC-16 checksum. A CRC only detects accidental modification; it does **not** verify merchant identity or make payment safe.
-- Accepts common ISO numeric currency codes (USD, INR, JPY, EUR, GBP, SGD and selected others). The implementation is deliberately not a complete payment-scheme certification or a universal EMV interpreter.
-- Requests are throttled by client address and route: e.g., scans 30/minute, other endpoints 60/minute. Counters can be shared through a Redis-compatible `REDIS_URL`; otherwise the limiter uses bounded in-process memory.
-- Render **Free Key Value** is memory-only and loses entries on restart. Its role here is temporary abuse counters, never financial records.
-- Never put real payment QR values or customer identity information into this educational demo.
+Run local checks with the test dependencies installed:
 
-## Optional account-backed history (Free-tier architecture)
+```text
+python -m pip install -r requirements-api.txt httpx==0.28.1 pytest==9.0.2 qrcode==8.2
+python -m pytest tests/ -q
+cd web
+npm ci
+npm run build
+npm run lint
+npm audit --audit-level=low
+```
 
-The project includes opt-in accounts and database-backed summaries. They are **disabled on Render by default**: the Free Render web service has ephemeral storage, and Render Free PostgreSQL expires after 30 days. Do not offer persistent user accounts until you configure a suitable durable database with an explicit retention plan.
+The [GitHub Actions workflows](.github/workflows/) include browser setup, a local synthetic account database and bounded load checks. `integration/load_smoke.py` refuses non-localhost targets and submits 20 synthetic scans across four workers. Its measurements are not hosting-capacity guarantees. Do not load-test the hosted Free service.
 
-Run a local prototype without buying anything:
+## Remaining limitations
 
-- `QR_DATABASE_URL=sqlite:////absolute/path/to/qr_accounts.sqlite`
-- `QR_ALLOW_REGISTRATION=true` (only in local, controlled development)
-- `POST /api/account/register`, `POST /api/account/login`, `POST /api/account/logout`
-- `GET /api/account/me`, `GET /api/account/history`, `POST /api/account/clear-history`
-- `POST /api/account/scan-text` takes a bearer token, not the shared demo key.
-- Passwords use salted scrypt, random expiring bearer tokens are stored only as SHA256 digests. Database queries are parameterized.
-- Persisted scan summaries exclude raw QR text and recipient/payee identifiers. Accounts are scoped to the authenticated user ID; testing covers cross-account isolation.
+- No email verification, password recovery, MFA, or mature session/device management. These were not included in the focused release.
+- Shared demo keys are developer access control, not individual identity. Private accounts provide scoped demo data, not production financial-service authentication.
+- Throttling is best-effort: login 6/minute, registration 4/minute and scans 30/minute by client address/route. In-process counters reset with the service and are not a complete abuse defense.
+- No merchant verification, payment execution, provider fee integration, or authoritative fraud signals.
+- Free hosting/database quotas, cold starts, retention and backup arrangements need operator review before broader use.
+- No claim of a full penetration test, regulatory certification, global QR interoperability, or production readiness.
 
-A PostgreSQL URI in `QR_DATABASE_URL` activates the same account routes with psycopg. Keep credentials server-side and restrict database access; use TLS and a provider with a suitable deletion/backup policy. Note there is no email verification, recovery, or mature session/device management yet; production financial-service authentication requires more work.
-
-
-## React account workspace and controlled free-tier benchmarking
-
-The React frontend now has **QR demo** and **Accounts** tabs. Accounts are feature-discovered via `GET /api/account/status`. When no `QR_DATABASE_URL` is set (as on the existing Render Free service), the Accounts tab safely explains that accounts and durable scan history are unavailable. No user data is silently stored on the ephemeral web-service filesystem.
-
-To develop locally with no cloud charges, configure an isolated SQLite database with `QR_DATABASE_URL=sqlite:////absolute/path/account-demo.sqlite` and set `QR_ALLOW_REGISTRATION=true`. Accounts are deliberately educational: no email verification, recovery or MFA, so do **not** enter real financial identifiers or reuse passwords. React keeps the bearer token in component memory and clears it on reload/sign-out. The account UI currently supports text QR scans and user-isolated summary history; the original demo retains image uploads.
-
-For an optional durable free hosted PostgreSQL instance, Neon's Free plan is suitable for hobby use (see [Neon pricing](https://neon.com/pricing)); check its current limits. Create the database yourself on Neon's **Free** tier, then set its TLS-enabled PostgreSQL connection URL privately as `QR_DATABASE_URL` in your Render service's environment variables. Only enable `QR_ALLOW_REGISTRATION=true` after testing connections and account isolation. **Never add the database URL, passwords or API keys to source control or chat messages.** Database capacity limits, provider suspensions and lack of mature identity features remain important caveats.
-
-CI runs `integration/load_smoke.py` against a **localhost** FastAPI instance configured for deterministic USD-to-USD synthetic QR scans. It submits 20 scans across four workers, records p50/p95 latency and measured requests/s, and asserts successful responses. It explicitly refuses non-localhost URLs to protect Free-tier hosting from unwanted traffic. These measurements are not a capacity or uptime guarantee.
+The project is ready for a controlled portfolio demonstration with synthetic data. Public registration remains disabled.
