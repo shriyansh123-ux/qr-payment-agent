@@ -22,9 +22,9 @@ NPCI’s user flow requires international-payment activation, participating merc
 | Any foreign QR becomes payable through UPI after conversion | Not established | Never rewrite a merchant QR into a generic UPI payment URI |
 | Traveller app initiates a payment against another merchant’s terminal QR | No public integration contract found in the reviewed sources | Obtain explicit provider approval and technical documentation |
 | Final INR amount, fees and quote validity are available to this app | Not established | Continue calling the existing output an estimate |
-| General Network sandbox | Documented | A sandbox account is needed |
+| General Network sandbox | Explicitly offered as a free test account | Application requires personal contact details and a business name |
 | UPI International sandbox for this app’s role | Not confirmed | Generic card/AANI testing does not prove UPI testing |
-| Zero-cost access, credentials and onboarding | Not confirmed | Require explicit zero-cost terms before proceeding |
+| Zero-cost UPI-specific access and onboarding | Not confirmed; the general gateway test account is advertised free | Confirm that free access covers this UPI route and the app’s role |
 
 N-Genius Online’s sandbox page documents account access and test scenarios including cards and AANI. **AANI is a separate payment method; its simulator is not evidence of UPI International support.** [Sandbox documentation](https://docs.ngenius-payments.com/reference/sandbox-test-environment).
 
@@ -61,3 +61,8 @@ Tests must cover mismatched merchant/order/amount/currency, expired quotes, deni
 ## Practical result
 
 Public sources support the payment corridor. They do not establish a free self-service integration for this traveller-side app. The next external dependency is a provider response confirming eligibility, the exact API/SDK, approved sample QRs and UPI-specific sandbox access. Until then, keep the deployed cost estimator and avoid adding unverified compatibility labels or simulated payment success to its normal flow.
+
+
+## Sandbox application follow-up
+
+The [official test-account form](https://www.network.ae/en/test-account) explicitly offers a **free general gateway test account**. It requests first name, last name, email, mobile number and business name. No application was submitted and no personal data was transmitted. Whether an independent educational project qualifies, and whether the account includes UPI International, remain unanswered. Do not invent a registered business or infer UPI entitlement from generic sandbox access.
