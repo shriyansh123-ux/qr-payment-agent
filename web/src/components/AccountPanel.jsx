@@ -5,14 +5,9 @@ import {
   accountStatus, accountRegister, accountLogin, accountLogout,
   accountHistory, accountClearHistory, accountScanText,
 } from "../lib/api";
+import { formatMoney } from "../lib/money";
 
 const SAMPLE = "upi://pay?pa=merchant@upi&am=100&cu=INR";
-
-function formatMoney(value, currency) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return "Unavailable";
-  return `${currency || "INR"} ${amount.toFixed(2)}`;
-}
 
 export default function AccountPanel() {
   const [status, setStatus] = useState(null);
@@ -99,7 +94,7 @@ export default function AccountPanel() {
     setError("");
     setResult(null);
     try {
-      const response = await accountScanText(token, qrText.trim(), null, homeCurrency);
+      const response = await accountScanText(token, qrText.trim(), homeCurrency);
       setResult(response);
       await refreshHistory(token);
     } catch (problem) {

@@ -1,10 +1,9 @@
-name: Verify QR Payment Agent
+name: Verify Travel QR Cost Estimator
 
 on:
   push:
     branches:
       - main
-      - deploy/single-service-render-20261024
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -21,14 +20,42 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-api.txt "httpx==0.28.1" "pytest==9.0.2" "qrcode==8.2"
-      - name: Syntax-check Python source
-        run: python -m compileall -q src tests
+          python -m pip install -r requirements-dev.txt
+      - name: Lint Python
+        run: ruff check src tests integration
+      - name: Type-check Python
+        run: mypy
       - name: Execute all Python tests, including real QR image decoding
         env:
-          GEMINI_API_KEY: ""
           QR_API_KEY: "a-ci-only-key-with-no-production-access-1234"
         run: python -m pytest tests/ -q
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: accounts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d accounts"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Run account tests against PostgreSQL
+        env:
+          QR_TEST_POSTGRES_URL: "postgresql://ci:ci-only-password@127.0.0.1:5432/accounts"
+        run: python -m pytest tests/test_account_storage.py -q -rs
   react:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -46,8 +73,8 @@ jobs:
         run: npm ci
       - name: Build React frontend
         run: npm run build
-      - name: Test exact cash arithmetic and native numerals
-        run: node --test tests/cash.test.js
+      - name: Test cash arithmetic, money formatting and demo-payload rules
+        run: npm test
       - name: Lint React frontend
         run: npm run lint
       - name: Report npm dependency advisories
@@ -83,7 +110,7 @@ jobs:
         run: |
           python - <<'PY'
           import requests
-          from src.agents.fx_rate_agent import FXRateAgent, FXUnavailable
+          from src.services.fx import FXRateService
           session = requests.Session()
           try:
               for pair in [("JPY", "INR"), ("INR", "USD")]:
@@ -95,7 +122,7 @@ jobs:
                                     params={"base": base, "symbols": quote}, timeout=8)
                   print("ECB provider", base, quote, ecb.status_code,
                         (ecb.json().get("date") if ecb.ok else "unavailable"), flush=True)
-                  amount = FXRateAgent().handle(1500, base, quote)
+                  amount = FXRateService().convert(1500, base, quote)
                   print("Selected rate", amount["provider"], amount["rate_date"],
                         amount["total_home"], flush=True)
                   assert amount["total_home"] > 0
@@ -109,21 +136,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build API container
-        run: docker build -t qr-payment-agent:ci .
+        run: docker build -t travel-qr-cost-estimator:ci .
       - name: Start container and smoke test API
         run: |
-          docker run -d --rm --name qr-agent-ci -p 127.0.0.1:8765:8000 -e QR_API_KEY="local-ci-key-with-at-least-24-characters" qr-payment-agent:ci
+          docker run -d --rm --name travel-qr-ci -p 127.0.0.1:8765:8000 -e QR_API_KEY="local-ci-key-with-at-least-24-characters" travel-qr-cost-estimator:ci
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8765/api/health; then break; fi
             sleep 2
           done
           curl -fsS http://127.0.0.1:8765/api/health
           curl -fsS http://127.0.0.1:8765/ | grep -q '<div id="root">'
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"qr_payload":"QR:JP:JPY:1500"}' http://127.0.0.1:8765/api/scan-text)
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"qr_payload":"upi://pay?pa=merchant@upi&am=100&cu=INR"}' http://127.0.0.1:8765/api/scan-text)
           test "$code" = 401
+          curl -fsS -X POST -H 'Content-Type: application/json' -d '{"qr_payload":"QR:IN:INR:100"}' http://127.0.0.1:8765/api/scan-text | python -c 'import json,sys; v=json.load(sys.stdin); assert v["fx_result"]["total_home"]==100, v'
+          curl -fsS -D - -o /dev/null http://127.0.0.1:8765/ | grep -qi '^content-security-policy:'
           curl -fsS -X POST -H 'Content-Type: application/json' -H 'X-API-Key: local-ci-key-with-at-least-24-characters' -d '{"qr_payload":"upi://pay?pa=merchant@upi&am=100&cu=INR"}' http://127.0.0.1:8765/api/scan-text | python -c 'import json,sys; v=json.load(sys.stdin); assert v["success"] and v["fx_result"]["total_home"]==100, v'
       - if: always()
-        run: docker logs qr-agent-ci || true
+        run: docker logs travel-qr-ci || true
   load_local:
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -138,7 +167,6 @@ jobs:
         env:
           HOME_CURRENCY: USD
           QR_API_KEY: "ci-local-load-key-with-at-least-24-characters"
-          GEMINI_API_KEY: ""
         run: |
           python -m uvicorn src.api.server:app --host 127.0.0.1 --port 8766 > /tmp/qr-local-load.log 2>&1 &
           for i in $(seq 1 30); do
@@ -179,7 +207,6 @@ jobs:
       - name: Start combined frontend and API on one port
         env:
           QR_API_KEY: "local-ci-browser-key-at-least-24-characters"
-          GEMINI_API_KEY: ""
           QR_DATABASE_URL: "sqlite:////tmp/qr-browser-ci-accounts.sqlite"
           QR_ALLOW_REGISTRATION: "true"
         run: |

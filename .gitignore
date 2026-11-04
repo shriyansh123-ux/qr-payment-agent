@@ -1,10 +1,14 @@
 .env
 .env.local
+web/.env
 web/.env.local
 __pycache__/
 *.pyc
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .venv/
-temp_uploads/
-data/*.db
-web/.env
+web/node_modules/
+web/dist/
+*.sqlite
+data/

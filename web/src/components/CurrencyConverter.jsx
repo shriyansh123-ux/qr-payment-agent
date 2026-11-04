@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { convertCurrency, getCurrencies } from "../lib/api";
+import { formatMoney } from "../lib/money";
 
-export default function CurrencyConverter({ apiKey, onApiKeyChange }) {
+export default function CurrencyConverter({ apiKey, onApiKeyChange, publicDemo = false }) {
   const id = useId();
   const [currencies, setCurrencies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export default function CurrencyConverter({ apiKey, onApiKeyChange }) {
     event.preventDefault();
     setResult(null);
     setError("");
-    if (!apiKey.trim()) { setError("Enter your demo API key to convert."); return; }
+    if (!publicDemo && !apiKey.trim()) { setError("Enter your demo API key to convert."); return; }
     const value = Number(amount);
     if (!amount.trim() || !Number.isFinite(value) || value <= 0 || value > 1e12) {
       setError("Enter an amount greater than 0 and no more than 1,000,000,000,000."); return;
@@ -58,7 +59,7 @@ export default function CurrencyConverter({ apiKey, onApiKeyChange }) {
     <label className="label" htmlFor={`${id}-key`}>Demo API key</label>
     <input className="textarea" type="password" autoComplete="off" id={`${id}-key`} value={apiKey} disabled={busy}
       onChange={event => { onApiKeyChange(event.target.value); setResult(null); setError(""); }} />
-    <p className="hint">Uses the same private demo key as the QR workspace. Held only in this page; never saved to browser storage.</p>
+    <p className="hint">{publicDemo ? "Optional on this deployment. " : ""}Uses the same private demo key as the QR workspace. Held only in this page; never saved to browser storage.</p>
     {loading ? <p role="status">Loading supported currencies…</p> : catalogError ? <>
       <p role="alert">{catalogError}</p>
       <button className="btnSecondary" type="button" onClick={() => {
@@ -85,9 +86,7 @@ export default function CurrencyConverter({ apiKey, onApiKeyChange }) {
             {currencies.map(item => <option key={item.code} value={item.code}>{item.code} — {item.name}</option>)}
           </select>
           <p className="label">Reference amount</p>
-          <output className="convertedAmount" aria-live="polite">{result
-            ? `${result.to_currency} ${Number(result.total_home).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : "—"}</output>
+          <output className="convertedAmount" aria-live="polite">{result ? formatMoney(result.total_home, result.to_currency) : "—"}</output>
         </div>
       </div>
       <div className="actions">
@@ -100,7 +99,7 @@ export default function CurrencyConverter({ apiKey, onApiKeyChange }) {
     </form>}
     {error && <p className="error" role="alert">{error}</p>}
     {result && <div className="conversionDetails" role="status">
-      <strong>{result.amount} {result.from_currency} = {Number(result.total_home).toFixed(2)} {result.to_currency}</strong>
+      <strong>{result.amount} {result.from_currency} = {formatMoney(result.total_home, result.to_currency)}</strong>
       <p>Rate: 1 {result.from_currency} = {result.rate} {result.to_currency}</p>
       <p>Rate date: {result.rate_date} · Source: {result.provider === "same-currency" ? "Same currency; no FX conversion" : result.provider}</p>
     </div>}

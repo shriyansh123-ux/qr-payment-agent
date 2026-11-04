@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { formatMoney } from "../lib/money";
 
 const outcomes = {
   success: "Simulation successful — no money moved.",
@@ -10,7 +11,7 @@ export default function PaymentSimulation({ amount, currency, fees }) {
   const id = useId();
   const [stage, setStage] = useState("idle");
   const [outcome, setOutcome] = useState("success");
-  const money = value => `${currency} ${Number(value).toFixed(2)}`;
+  const money = value => formatMoney(value, currency);
   const finished = stage === "complete" || stage === "cancelled";
   return <section className="paymentSimulation" aria-labelledby={`${id}-title`}>
     <span className="simulationBadge">SIMULATION · NO REAL PAYMENT</span>

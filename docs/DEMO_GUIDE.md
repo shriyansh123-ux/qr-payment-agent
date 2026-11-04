@@ -25,7 +25,7 @@ The project explores that question by putting the original amount, reference con
 
 ## Three-minute walkthrough
 
-Before presenting, open the app and confirm it is awake. Use your existing authorized demo key or private account; keep credentials off slides and out of screen recordings. Public registration stays disabled. Use synthetic data. For a credential-free demonstration, start with Cash helper; QR and converter demonstrations require authorized access.
+Before presenting, open the app and confirm it is awake. Use your existing authorized demo key or private account; keep credentials off slides and out of screen recordings. Public registration stays disabled. Use synthetic data. For a credential-free demonstration, use Cash helper, the currency converter, or `QR:` demo strings in the QR demo; UPI/EMV payloads, images and camera photos require the demo key.
 
 ### 0:00–0:30 — Explain the problem
 

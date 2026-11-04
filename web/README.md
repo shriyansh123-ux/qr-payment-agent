@@ -1,16 +1,25 @@
-# React + Vite
+# Web frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite single-page app for the Travel QR Cost Estimator. In production the FastAPI
+server serves the built files from `web/dist`, so the app and API share one origin.
 
-Currently, two official plugins are available:
+```text
+npm ci
+npm run dev      # http://127.0.0.1:5173, proxies /api to http://127.0.0.1:8000
+npm test         # cash arithmetic, money formatting and demo-payload rules
+npm run lint
+npm run build
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| Path | Purpose |
+| --- | --- |
+| `src/App.jsx` | Workspace tabs and the shared in-memory demo key |
+| `src/components/QRDemo.jsx` | Text, image and camera QR estimates with in-page history |
+| `src/components/AccountPanel.jsx` | Optional sign-in and saved scan summaries |
+| `src/components/CurrencyConverter.jsx` | Manual From/To reference conversion |
+| `src/components/CashHelper.jsx` | Offline cash payment and change checking |
+| `src/lib/api.js` | The only API client; turns FastAPI errors into readable messages |
+| `src/lib/money.js` | Currency minor units and money formatting |
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Keys and tokens live only in React state. Never put secrets in `VITE_` variables: they are
+compiled into the public bundle.

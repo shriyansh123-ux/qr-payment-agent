@@ -9,6 +9,7 @@ class Request:
     def __init__(self, path="/api/scan-text", host="local-test-client"):
         self.url = SimpleNamespace(path=path)
         self.client = SimpleNamespace(host=host)
+        self.headers = {}
 
 
 async def next_response(request):
@@ -41,4 +42,38 @@ def test_login_has_stricter_throttling(monkeypatch):
     for _ in range(6):
         assert asyncio.run(limits.api_rate_limit(route, next_response)).status_code == 200
     assert asyncio.run(limits.api_rate_limit(route, next_response)).status_code == 429
+    limits._buckets.clear()
+
+
+class ProxiedRequest(Request):
+    def __init__(self, forwarded, host="10.0.0.1"):
+        super().__init__(host=host)
+        self.headers = {"x-forwarded-for": forwarded}
+
+
+def test_forwarded_header_ignored_unless_proxy_trusted(monkeypatch):
+    monkeypatch.delenv("QR_TRUSTED_PROXY_HOPS", raising=False)
+    assert limits.client_address(ProxiedRequest("203.0.113.9")) == "10.0.0.1"
+
+
+def test_trusted_proxy_uses_rightmost_unspoofable_entry(monkeypatch):
+    monkeypatch.setenv("QR_TRUSTED_PROXY_HOPS", "1")
+    # A client can prepend fake entries; the proxy-appended one is last.
+    assert limits.client_address(ProxiedRequest("1.2.3.4, 198.51.100.7")) == "198.51.100.7"
+    assert limits.client_address(ProxiedRequest("")) == "10.0.0.1"
+
+
+def test_visitors_behind_one_proxy_get_separate_buckets(monkeypatch):
+    limits._buckets.clear()
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.setenv("QR_TRUSTED_PROXY_HOPS", "1")
+    monkeypatch.setattr(limits.time, "monotonic", lambda: 3000)
+    login = "/api/account/login"
+    for _ in range(6):
+        request = ProxiedRequest("198.51.100.1")
+        request.url.path = login
+        assert asyncio.run(limits.api_rate_limit(request, next_response)).status_code == 200
+    other = ProxiedRequest("198.51.100.2")
+    other.url.path = login
+    assert asyncio.run(limits.api_rate_limit(other, next_response)).status_code == 200
     limits._buckets.clear()
