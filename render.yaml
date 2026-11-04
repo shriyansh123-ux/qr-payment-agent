@@ -2,7 +2,7 @@
 # The service name is kept from the original project so the hosted URL stays the same.
 services:
   - type: web
-    name: qr-payment-agent-demo
+    name: qr-payment-agent-1
     runtime: docker
     plan: free
     branch: main

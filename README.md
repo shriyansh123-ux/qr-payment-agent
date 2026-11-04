@@ -4,7 +4,7 @@ Scan a foreign payment QR and see what it costs in your home currency, with the 
 its date and its source. Add your bank's fees to see the real total, and check the change you
 get back when paying cash.
 
-**[Live demo](https://qr-payment-agent-demo.onrender.com/)** · React 19 · FastAPI · OpenCV · PostgreSQL · Docker
+**[Live demo](https://qr-payment-agent-1.onrender.com/)** · React 19 · FastAPI · OpenCV · PostgreSQL · Docker
 
 > Educational project using synthetic data. It never moves money, verifies merchants or quotes a final bank charge.
 

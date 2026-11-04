@@ -57,7 +57,7 @@ If Docker is unavailable locally, GitHub Actions builds and smoke-tests the cont
 
 ## Option C: Render web service (manual demo deployment)
 
-For this project, reuse the existing `qr-payment-agent-demo` service and `qr-payment-agent-db` database. The steps below describe a separate installation; do not create duplicate resources to update the existing app. The educational simulation needs no payment-provider account or business onboarding.
+For this project, reuse the existing `qr-payment-agent-1` service and `qr-payment-agent-db` database. The steps below describe a separate installation; do not create duplicate resources to update the existing app. The educational simulation needs no payment-provider account or business onboarding.
 
 The root `render.yaml` is a Render Blueprint for **one Docker web service**, with a health check at `/api/health`, optional free-tier instance choice and `autoDeployTrigger: off`.
 
@@ -74,7 +74,7 @@ No Render resources are created by merging this repository change. The Blueprint
 
 ## Connecting Neon PostgreSQL to the existing Render service
 
-The existing deployment was verified on 24 October 2026 with Render Free service `qr-payment-agent-demo` and Neon Free project `qr-payment-agent-db` in AWS Ohio. Reuse those resources; these steps are not instructions to create duplicates. No paid resources were provisioned during that setup.
+The existing deployment was verified on 24 October 2026 with Render Free service `qr-payment-agent-1` and Neon Free project `qr-payment-agent-db` in AWS Ohio. Reuse those resources; these steps are not instructions to create duplicates. No paid resources were provisioned during that setup.
 
 1. Sign in to the authorized Neon account. Confirm the project is on Free. For a separate installation, choose Free explicitly and inspect the current limits before creating anything; do not add paid resources.
 2. In the project's connection dialog, select the intended branch, database and role. Obtain the PostgreSQL URL privately with TLS enabled. Do not paste it in chat, commit it, or include it in screenshots.
@@ -94,7 +94,7 @@ Free services may sleep or reach quotas. Review provider limits, retention and b
 
 ## Renaming the repository
 
-The project was renamed from `qr-payment-agent` to **travel-qr-cost-estimator**. The Render service keeps its existing name, `qr-payment-agent-demo`, so the hosted URL does not change. After renaming the GitHub repository (Settings → General → Repository name), GitHub redirects the old URL, but check that the Render service still shows the repository under **Settings → Build & Deploy** and reconnect it if not.
+The project was renamed from `qr-payment-agent` to **travel-qr-cost-estimator**. The Docker web service `qr-payment-agent-1` (https://qr-payment-agent-1.onrender.com) is the live demo; an older Python-runtime service, `qr-payment-agent`, was retired. After renaming the GitHub repository (Settings → General → Repository name), GitHub redirects the old URL, but check that the Render service still shows the repository under **Settings → Build & Deploy** and reconnect it if not.
 
 ## Rate limiting behind a proxy
 
