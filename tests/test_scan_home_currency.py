@@ -1,4 +1,5 @@
 """Currency choices propagate through text, image and private saved scans."""
+from decimal import Decimal
 from io import BytesIO
 
 import pytest
@@ -13,13 +14,13 @@ KEY = "synthetic-home-currency-testing-key-12345"
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("QR_API_KEY", KEY)
-    monkeypatch.setattr("src.api.currency_converter.supported_currencies",
+    monkeypatch.setattr("src.services.currencies.supported_currencies",
                         lambda: [{"code": "INR"}, {"code": "USD"}, {"code": "EUR"}])
     def fx(self, amount_local, local_currency, home_currency):
         return {"from_currency": local_currency, "to_currency": home_currency,
-                "total_home": float(amount_local) * 2, "rate": 2,
+                "total_home": Decimal(amount_local) * 2, "rate": 2,
                 "rate_date": "2026-10-25", "provider": "synthetic-test"}
-    monkeypatch.setattr("src.agents.fx_rate_agent.FXRateAgent.handle", fx)
+    monkeypatch.setattr("src.services.fx.FXRateService.convert", fx)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -78,10 +79,10 @@ def test_saved_summary_uses_selected_currency(client, monkeypatch, tmp_path):
 
 
 def test_catalog_outage_has_clear_error_but_default_still_works(client, monkeypatch):
-    from src.agents.fx_rate_agent import FXUnavailable
+    from src.services.fx import FXUnavailable
     def unavailable():
         raise FXUnavailable("Supported currency list is temporarily unavailable. Try again.")
-    monkeypatch.setattr("src.api.currency_converter.supported_currencies", unavailable)
+    monkeypatch.setattr("src.services.currencies.supported_currencies", unavailable)
     response = client.post("/api/scan-text", headers={"X-API-Key": KEY},
                            json={"qr_payload": "QR:IN:INR:1", "home_currency": "USD"})
     assert response.status_code == 503

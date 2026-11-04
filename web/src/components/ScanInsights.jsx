@@ -1,11 +1,6 @@
 import { useId, useState } from "react";
+import { formatMoney as money } from "../lib/money";
 import PaymentSimulation from "./PaymentSimulation";
-
-function money(value, currency) {
-  const amount = Number(value);
-  return value != null && Number.isFinite(amount)
-    ? `${currency} ${amount.toFixed(2)}` : "Unavailable";
-}
 
 function FeeScenario({ amount, currency }) {
   const id = useId();
@@ -61,7 +56,7 @@ export default function ScanInsights({ result }) {
       const fx = item.fx_result;
       const qr = item.qr_info || {};
       const scheme = qr.raw_fields?.scheme || "Payment QR";
-      return <article className="scanBreakdown" key={index} aria-label={`QR ${index + 1} breakdown`}>
+      return <article className="scanBreakdown" key={qr.qr_id || index} aria-label={`QR ${index + 1} breakdown`}>
         <div className="insightHeading">
           <h4>{scans.length > 1 ? `QR ${index + 1} · ` : ""}{scheme}</h4>
         </div>

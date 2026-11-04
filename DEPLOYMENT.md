@@ -47,8 +47,8 @@ Scan explanations are deterministic amount/rate breakdowns. No AI provider or Ge
 The Dockerfile compiles React using Node, then copies the static assets into the Python runtime. FastAPI serves the React UI from `/` and API from `/api` on **one HTTP origin**. Node is not present in the running production image.
 
 ```powershell
-docker build -t qr-payment-agent:demo .
-docker run --rm --name qr-agent-demo -p 127.0.0.1:8000:8000 -e QR_API_KEY="YOUR_RANDOM_KEY" qr-payment-agent:demo
+docker build -t travel-qr-cost-estimator:demo .
+docker run --rm --name travel-qr-demo -p 127.0.0.1:8000:8000 -e QR_API_KEY="YOUR_RANDOM_KEY" travel-qr-cost-estimator:demo
 ```
 
 Open `http://127.0.0.1:8000`. The container respects `PORT` if a hosting platform provides one.
@@ -84,13 +84,21 @@ The existing deployment was verified on 24 October 2026 with Render Free service
 6. Verify actual PostgreSQL access. The status endpoint checks only whether a URL is configured. A synthetic login for a nonexistent user should return `401 Invalid credentials` after table initialization and a database query, rather than a database error. Cross-check the expected tables through Neon's SQL editor. Do not log credentials or connection strings while diagnosing failures.
 7. With an authorized private synthetic account, verify a text scan saves a summary and that it returns after sign-out, page reload and sign-in. Keep registration disabled throughout hosted testing.
 
-The app uses `qr_users`, `qr_tokens` and `qr_scan_summaries`; tables are initialized by account login/registration. Never use a SQLite file on Render's ephemeral filesystem for durable accounts. No Render PostgreSQL or Redis resource is required by this architecture.
+The app uses `qr_users`, `qr_tokens` and `qr_scan_summaries`; tables are created on the first account request after each start. PostgreSQL connections come from a small pool (at most 5), and expired tokens are deleted at each login. Never use a SQLite file on Render's ephemeral filesystem for durable accounts. No Render PostgreSQL or Redis resource is required by this architecture.
 
 For local account creation only, configure an isolated SQLite database and explicitly enable registration in that local process. Hosted private account provisioning is an operator action; there is no public signup or administrative account-management UI.
 
 The repository Blueprint omits the Neon secret. Keep it in the existing service's secret configuration. Do not add a literal connection string to `render.yaml`, `.env` examples, frontend build variables, or documentation.
 
 Free services may sleep or reach quotas. Review provider limits, retention and backup arrangements in their dashboards; the project does not promise permanent free availability or recovery guarantees.
+
+## Renaming the repository
+
+The project was renamed from `qr-payment-agent` to **travel-qr-cost-estimator**. The Render service keeps its existing name, `qr-payment-agent-demo`, so the hosted URL does not change. After renaming the GitHub repository (Settings → General → Repository name), GitHub redirects the old URL, but check that the Render service still shows the repository under **Settings → Build & Deploy** and reconnect it if not.
+
+## Rate limiting behind a proxy
+
+Render sends traffic through its own proxy, so without `QR_TRUSTED_PROXY_HOPS` every visitor shares the proxy's address and one rate-limit bucket. With it set to `1`, the limiter reads the last `X-Forwarded-For` entry, which visitors cannot forge. To confirm the setting, sign in from two different networks: neither should be throttled by the other's attempts. If they still share a bucket, there is an extra proxy hop; try `2`.
 
 ## Technical defaults
 
@@ -99,6 +107,9 @@ Free services may sleep or reach quotas. Review provider limits, retention and b
 | `QR_API_KEY` | Required development API secret | Not configured; must set |
 | `QR_DATABASE_URL` | Optional account database; use a TLS PostgreSQL URL on hosted deployments | Not configured by the repository; existing service configured privately |
 | `QR_ALLOW_REGISTRATION` | Controls account creation | `false`; keep disabled on hosted service |
+| `QR_PUBLIC_DEMO` | Lets visitors try synthetic `QR:` strings and the converter without a key; UPI/EMV text and image uploads still need `QR_API_KEY` | `true`; set `false` to require the key everywhere |
+| `QR_TRUSTED_PROXY_HOPS` | Number of reverse proxies in front of the app, so rate limits apply per visitor instead of per proxy | `0`; `render.yaml` sets `1` |
+| `REDIS_URL` | Optional shared rate-limit counters | Not configured |
 | `PORT` | Uvicorn HTTP listening port in Docker | 8000; Render config sets 10000 |
 | `QR_CORS_ORIGINS` | Explicit cross-origin requests, if you add a separate frontend | Localhost dev origins |
 | `VITE_API_BASE` | Optional API origin override for special deployments | Empty; same origin |

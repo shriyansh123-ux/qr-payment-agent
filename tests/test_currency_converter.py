@@ -4,9 +4,10 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+
 from src.api.server import app
-from src.api import currency_converter as converter
-from src.agents.fx_rate_agent import FXUnavailable
+from src.services import currencies
+from src.services.fx import FXRateService, FXUnavailable
 
 KEY = "synthetic-converter-test-key-at-least-24-characters"
 
@@ -14,8 +15,9 @@ KEY = "synthetic-converter-test-key-at-least-24-characters"
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("QR_API_KEY", KEY)
-    monkeypatch.setattr(converter, "_catalog", None)
-    monkeypatch.setattr(converter, "_catalog_until", 0)
+    monkeypatch.setenv("QR_PUBLIC_DEMO", "false")
+    monkeypatch.setattr(currencies, "_catalog", None)
+    monkeypatch.setattr(currencies, "_catalog_until", 0)
     from src.api import limits
     limits._buckets.clear()
     with TestClient(app) as value:
@@ -23,7 +25,7 @@ def client(monkeypatch):
 
 
 def catalog(monkeypatch):
-    monkeypatch.setattr(converter, "supported_currencies", lambda: [
+    monkeypatch.setattr(currencies, "supported_currencies", lambda: [
         {"code": "INR", "name": "Indian Rupee"},
         {"code": "USD", "name": "US Dollar"},
         {"code": "EUR", "name": "Euro"},
@@ -52,7 +54,7 @@ def test_catalog_filters_deduplicates_and_caches(client, monkeypatch):
         calls.append(url)
         return Response()
 
-    monkeypatch.setattr(converter.requests, "get", get)
+    monkeypatch.setattr(currencies.requests, "get", get)
     first = client.get("/api/currencies")
     assert first.status_code == 200
     assert [row["code"] for row in first.json()["currencies"]] == ["INR", "USD"]
@@ -62,8 +64,8 @@ def test_catalog_filters_deduplicates_and_caches(client, monkeypatch):
 
 def test_catalog_failure_is_explicit(client, monkeypatch):
     def fail(*args, **kwargs):
-        raise converter.requests.RequestException("provider unavailable")
-    monkeypatch.setattr(converter.requests, "get", fail)
+        raise currencies.requests.RequestException("provider unavailable")
+    monkeypatch.setattr(currencies.requests, "get", fail)
     response = client.get("/api/currencies")
     assert response.status_code == 503
     assert "temporarily unavailable" in response.json()["detail"]
@@ -78,7 +80,7 @@ def test_conversion_requires_key(client, monkeypatch):
 
 def test_arbitrary_pair_rounding_and_provenance(client, monkeypatch):
     catalog(monkeypatch)
-    monkeypatch.setattr(converter.FXRateAgent, "get_rate",
+    monkeypatch.setattr(FXRateService, "get_rate",
                         lambda self, a, b: (Decimal("0.925"), "2026-10-23", "test-reference"))
     response = client.post("/api/convert", headers={"X-API-Key": KEY}, json={
         "amount": "10.5", "from_currency": "USD", "to_currency": "EUR"
@@ -117,7 +119,17 @@ def test_unknown_currency_and_unavailable_pair(client, monkeypatch):
     }).status_code == 422
     def fail(*args, **kwargs):
         raise FXUnavailable("Reference rate unavailable")
-    monkeypatch.setattr(converter.FXRateAgent, "handle", fail)
+    monkeypatch.setattr(FXRateService, "convert", fail)
     assert client.post("/api/convert", headers=headers, json={
         "amount": "1", "from_currency": "USD", "to_currency": "INR"
     }).status_code == 503
+
+
+def test_public_demo_allows_keyless_conversion(client, monkeypatch):
+    catalog(monkeypatch)
+    monkeypatch.setenv("QR_PUBLIC_DEMO", "true")
+    response = client.post("/api/convert", json={"amount": "5", "from_currency": "EUR", "to_currency": "EUR"})
+    assert response.status_code == 200, response.text
+    wrong_key = client.post("/api/convert", headers={"X-API-Key": "wrong"},
+                            json={"amount": "5", "from_currency": "EUR", "to_currency": "EUR"})
+    assert wrong_key.status_code == 401

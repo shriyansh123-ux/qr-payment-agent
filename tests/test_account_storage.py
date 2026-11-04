@@ -1,6 +1,31 @@
-"""Optional local account tests with isolated, free SQLite backing store."""
+"""Account tests on an isolated SQLite file and, in CI, a disposable PostgreSQL.
+
+Set QR_TEST_POSTGRES_URL to run the PostgreSQL variant; its tables are emptied
+before each test, so never point it at a database holding real data.
+"""
+import os
+
+import pytest
 from fastapi.testclient import TestClient
+
+from src.api import accounts
 from src.api.server import app
+
+
+@pytest.fixture(params=["sqlite", "postgres"])
+def database_url(request, tmp_path):
+    if request.param == "sqlite":
+        return "sqlite:///" + str(tmp_path / "accounts.sqlite")
+    url = os.getenv("QR_TEST_POSTGRES_URL", "")
+    if not url:
+        pytest.skip("QR_TEST_POSTGRES_URL not set")
+    os.environ["QR_DATABASE_URL"] = url
+    try:
+        with accounts.connect() as db:
+            db.run("TRUNCATE qr_scan_summaries, qr_tokens, qr_users")
+    finally:
+        del os.environ["QR_DATABASE_URL"]
+    return url
 
 
 def test_accounts_require_configuration(monkeypatch):
@@ -9,8 +34,8 @@ def test_accounts_require_configuration(monkeypatch):
         assert client.post("/api/account/login", json={"email":"a@example.org","password":"very-long-synthetic-password"}).status_code == 503
 
 
-def test_account_auth_history_isolation_and_logout(tmp_path, monkeypatch):
-    monkeypatch.setenv("QR_DATABASE_URL", "sqlite:///" + str(tmp_path / "accounts.sqlite"))
+def test_account_auth_history_isolation_and_logout(database_url, monkeypatch):
+    monkeypatch.setenv("QR_DATABASE_URL", database_url)
     monkeypatch.setenv("QR_ALLOW_REGISTRATION", "true")
     with TestClient(app) as client:
         def register(email):
@@ -61,3 +86,19 @@ def test_account_status_reflects_database_config_only(monkeypatch):
         state = client.get("/api/account/status").json()
         assert state["enabled"] is True
         assert state["registration_enabled"] is False
+
+
+def test_expired_tokens_are_rejected_and_cleaned_up(database_url, monkeypatch):
+    monkeypatch.setenv("QR_DATABASE_URL", database_url)
+    monkeypatch.setenv("QR_ALLOW_REGISTRATION", "true")
+    credentials = {"email": "expiry@example.org", "password": "long-synthetic-test-password-123"}
+    with TestClient(app) as client:
+        assert client.post("/api/account/register", json=credentials).status_code == 201
+        old = client.post("/api/account/login", json=credentials).json()["access_token"]
+        with accounts.connect() as db:
+            db.run("UPDATE qr_tokens SET expires_at = 1")
+        assert client.get("/api/account/me", headers={"Authorization": "Bearer " + old}).status_code == 401
+        assert client.post("/api/account/login", json=credentials).status_code == 200
+        with accounts.connect() as db:
+            remaining = db.run("SELECT COUNT(*) FROM qr_tokens WHERE expires_at <= 1").fetchone()[0]
+        assert remaining == 0

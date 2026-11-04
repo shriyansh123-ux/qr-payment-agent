@@ -1,7 +1,12 @@
+import logging
 import os
 
-# Default home currency
 HOME_CURRENCY = os.getenv("HOME_CURRENCY", "INR")
-
-# Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+
+def setup_logging() -> None:
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+    )

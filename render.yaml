@@ -1,4 +1,5 @@
-# Development preview only: public URLs need a separate access gateway.
+# Single Docker web service: React UI and FastAPI API on one origin.
+# The service name is kept from the original project so the hosted URL stays the same.
 services:
   - type: web
     name: qr-payment-agent-demo
@@ -12,3 +13,7 @@ services:
         sync: false
       - key: PORT
         value: "10000"
+      - key: QR_PUBLIC_DEMO
+        value: "true"
+      - key: QR_TRUSTED_PROXY_HOPS
+        value: "1"
