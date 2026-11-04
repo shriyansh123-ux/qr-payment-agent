@@ -95,8 +95,11 @@ jobs:
             }));
           }
           JS
-      - name: Enforce no known npm advisories
-        run: npm audit --audit-level=low
+      # Block on advisories in what ships to users (react, react-dom). Dev-only
+      # tooling such as ESLint is reported by the step above but does not fail CI,
+      # since its advisories often have no fix and never reach the browser.
+      - name: Enforce no known npm advisories in production dependencies
+        run: npm audit --omit=dev --audit-level=low
   live_fx:
     runs-on: ubuntu-latest
     timeout-minutes: 8
